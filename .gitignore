@@ -1,0 +1,5 @@
+main_asan
+main_asan.dSYM/
+*.o
+*.exe
+main
