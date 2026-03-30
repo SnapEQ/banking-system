@@ -4,10 +4,6 @@
 
 int main(int argc, char *argv[])
 {
-    char *k = getUserName();
-
-    printf("%s\n", k);
-
-    free(k);
+    storeNewUser();
     return 0;
 }
