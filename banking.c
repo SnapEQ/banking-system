@@ -154,7 +154,7 @@ int findUserByName(const char *name)
     size_t len = 0;
     ssize_t read;
     int lineNum = 0;
-    
+
     while ((read = getline(&line, &len, fptr)) != -1) {
         size_t start = 5;
         size_t buffSize = 256;
@@ -178,7 +178,7 @@ int findUserByName(const char *name)
             buffIndex++;
             start++;
         }
-        buff[start] = '\0';
+        buff[buffIndex] = '\0';
 
         if (strcmp(name, buff) == 0) {
             free(buff);
@@ -190,6 +190,71 @@ int findUserByName(const char *name)
         lineNum++;
 
 
+    }
+
+    if (line) {
+        free(line);
+    }
+
+    fclose(fptr);
+    return -1;
+}
+
+int findUserBySurname(const char *surname)
+{
+    FILE *fptr;
+
+    fptr = fopen("db.txt", "r");
+    if (fptr == NULL) {
+        return -2;
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    int lineNum = 0;
+
+    while ((read = getline(&line, &len, fptr)) != -1) {
+        size_t index = 0;
+        int howManySemi = 0;
+        size_t buffSize = 256;
+        size_t buffIndex = 0;
+        char *buff = malloc(buffSize * sizeof(char));
+        while(howManySemi < 3) {
+
+            if (howManySemi == 2 && line[index] != ';')
+            {
+                buff[buffIndex] = line[index];
+
+                if (buffIndex + 1 > buffSize) {
+                    buffSize *= 2;
+                    char *tmp = realloc(buff, buffSize);
+                    if (tmp == NULL) {
+                       free(buff);
+                        return -2;
+                    }
+
+                    buff = tmp;
+                }
+                buffIndex++;
+
+            }
+
+            if (line[index] == ';') {
+                howManySemi++;
+            }
+            index++;
+        }
+        buff[buffIndex] = '\0';
+
+        if (strcmp(surname, buff) == 0) {
+            free(buff);
+            free(line);
+            fclose(fptr);
+            return lineNum;
+        }
+
+        lineNum++;
     }
 
     if (line) {
