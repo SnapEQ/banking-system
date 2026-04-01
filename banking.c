@@ -1,4 +1,5 @@
 #include "banking.h"
+#include <stddef.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -137,6 +138,65 @@ int findUserByID(const char *Id)
     free(line);
     fclose(fptr);
 
+    return -1;
+}
+
+int findUserByName(const char *name)
+{
+    FILE *fptr;
+
+    fptr = fopen("db.txt", "r");
+    if (fptr == NULL) {
+        return -2;
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    int lineNum = 0;
+    
+    while ((read = getline(&line, &len, fptr)) != -1) {
+        size_t start = 5;
+        size_t buffSize = 256;
+        size_t buffIndex = 0;
+        char *buff = malloc(buffSize * sizeof(char));
+        while(line[start] != ';')
+        {
+            buff[buffIndex] = line[start];
+            if (buffIndex + 1 > buffSize)
+            {
+                buffSize *= 2;
+                char *tmp = realloc(buff, buffSize);
+                if (tmp == NULL)
+                {
+                    free(buff);
+                    return -2;
+                }
+
+                buff = tmp;
+            }
+            buffIndex++;
+            start++;
+        }
+        buff[start] = '\0';
+
+        if (strcmp(name, buff) == 0) {
+            free(buff);
+            free(line);
+            fclose(fptr);
+            return lineNum;
+        }
+
+        lineNum++;
+
+
+    }
+
+    if (line) {
+        free(line);
+    }
+
+    fclose(fptr);
     return -1;
 }
 
