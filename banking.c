@@ -112,41 +112,12 @@ char *getUserPesel(size_t *length)
     return input;
 }
 
-int findUserByID(const char *Id)
+int findUser(const char *s, searchType type)
 {
     FILE *fptr;
 
     fptr = fopen("db.txt", "r");
-    if (fptr == NULL){
-        return -2;
-    }
-
-    char *line = NULL;
-    size_t cap = 0;
-    int lineNum = 0;
-
-    while (getline(&line, &cap, fptr) != -1)
-    {
-        if (strncmp(line, Id, 4) == 0){
-            free(line);
-            fclose(fptr);
-            return lineNum;
-        }
-        lineNum++;
-    }
-
-    free(line);
-    fclose(fptr);
-
-    return -1;
-}
-
-int findUserByName(const char *name)
-{
-    FILE *fptr;
-
-    fptr = fopen("db.txt", "r");
-    if (fptr == NULL) {
+    if (fptr == NULL || s == NULL) {
         return -2;
     }
 
@@ -154,65 +125,25 @@ int findUserByName(const char *name)
     size_t len = 0;
     ssize_t read;
     int lineNum = 0;
+    int maxSemiNo = 0;
 
-    while ((read = getline(&line, &len, fptr)) != -1) {
-        size_t start = 5;
-        size_t buffSize = 256;
-        size_t buffIndex = 0;
-        char *buff = malloc(buffSize * sizeof(char));
-        while(line[start] != ';')
-        {
-            buff[buffIndex] = line[start];
-            if (buffIndex + 1 > buffSize)
-            {
-                buffSize *= 2;
-                char *tmp = realloc(buff, buffSize);
-                if (tmp == NULL)
-                {
-                    free(buff);
-                    return -2;
-                }
-
-                buff = tmp;
-            }
-            buffIndex++;
-            start++;
-        }
-        buff[buffIndex] = '\0';
-
-        if (strcmp(name, buff) == 0) {
-            free(buff);
-            free(line);
-            fclose(fptr);
-            return lineNum;
-        }
-
-        lineNum++;
-
-
+    switch (type){
+        case ID:
+            maxSemiNo = 1;
+            break;
+        case NAME:
+            maxSemiNo = 2;
+            break;
+        case SURNAME:
+            maxSemiNo = 3;
+            break;
+        case ADDRESS:
+            maxSemiNo = 4;
+            break;
+        case PESEL:
+            maxSemiNo = 5;
+            break;
     }
-
-    if (line) {
-        free(line);
-    }
-
-    fclose(fptr);
-    return -1;
-}
-
-int findUserBySurname(const char *surname)
-{
-    FILE *fptr;
-
-    fptr = fopen("db.txt", "r");
-    if (fptr == NULL) {
-        return -2;
-    }
-
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t read;
-    int lineNum = 0;
 
     while ((read = getline(&line, &len, fptr)) != -1) {
         size_t index = 0;
@@ -220,10 +151,11 @@ int findUserBySurname(const char *surname)
         size_t buffSize = 256;
         size_t buffIndex = 0;
         char *buff = malloc(buffSize * sizeof(char));
-        while(howManySemi < 3) {
+        while(howManySemi < maxSemiNo) {
 
-            if (howManySemi == 2 && line[index] != ';')
+            if (howManySemi == maxSemiNo - 1 && line[index] != ';')
             {
+
                 buff[buffIndex] = line[index];
 
                 if (buffIndex + 1 > buffSize) {
@@ -247,7 +179,7 @@ int findUserBySurname(const char *surname)
         }
         buff[buffIndex] = '\0';
 
-        if (strcmp(surname, buff) == 0) {
+        if (strcmp(s, buff) == 0) {
             free(buff);
             free(line);
             fclose(fptr);
@@ -282,7 +214,7 @@ char *generateId()
         }
         id[4] = '\0';
 
-        int r = findUserByID(id);
+        int r = findUser(id, ID);
         if (r == -1) {
             return id;
         }

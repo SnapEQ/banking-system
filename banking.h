@@ -2,10 +2,16 @@
 #define BANKING_H
 #include <stddef.h>
 
+typedef enum{
+    ID,
+    NAME,
+    SURNAME,
+    ADDRESS,
+    PESEL
+}searchType;
+
 void initBankingSystem();
-char *getUserName(size_t* length);
-int findUserByName(const char *name);
-int findUserBySurname(const char *surname);
+int findUser(const char *string, searchType type);
 void storeNewUser();
 
 #endif
