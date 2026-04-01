@@ -111,26 +111,86 @@ char *getUserPesel(size_t *length)
     return input;
 }
 
-// TO DO
-//  IMPLEMENT ID GENERATOR
+int findUserByID(const char *Id)
+{
+    FILE *fptr;
+
+    fptr = fopen("db.txt", "r");
+    if (fptr == NULL){
+        return -2;
+    }
+
+    char *line = NULL;
+    size_t cap = 0;
+    int lineNum = 0;
+
+    while (getline(&line, &cap, fptr) != -1)
+    {
+        if (strncmp(line, Id, 4) == 0){
+            free(line);
+            fclose(fptr);
+            return lineNum;
+        }
+        lineNum++;
+    }
+
+    free(line);
+    fclose(fptr);
+
+    return -1;
+}
+
+char *generateId()
+{
+    static const char alpha[] = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    const int maxAttempts = 10000;
+
+
+    char *id = malloc(5);
+    if (id == NULL) {
+        return NULL;
+    }
+
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        for (int i = 0; i < 4; i++) {
+            id[i] = alpha[rand() % (sizeof(alpha) - 1)];
+        }
+        id[4] = '\0';
+
+        int r = findUserByID(id);
+        if (r == -1) {
+            return id;
+        }
+        if (r == -2) {
+            free(id);
+            return NULL;
+        }
+    }
+
+    free(id);
+    return NULL;
+}
+
 void storeNewUser()
 {
     FILE *fptr;
 
-    fptr = fopen("db.txt", "w");
+    fptr = fopen("db.txt", "a+");
     if (fptr == NULL)
     {
         return;
     }
 
-    size_t length = 0;
+    size_t length = 0; 
+    char *userId = generateId();
     char *userName = getUserName(&length);
     char *userSurname = getUserSurname(&length);
     char *userAddress = getUserAddress(&length);
     char *userPesel = getUserPesel(&length);
 
-    if (userName == NULL || userSurname == NULL || userAddress == NULL || userPesel == NULL)
+    if (userId == NULL || userName == NULL || userSurname == NULL || userAddress == NULL || userPesel == NULL)
     {
+        free(userId);
         free(userName);
         free(userSurname);
         free(userAddress);
@@ -138,9 +198,10 @@ void storeNewUser()
         fclose(fptr);
         return;
     }
-
-    fprintf(fptr, "%s;%s;%s;%s;%s;%s", userName, userSurname, userAddress, userPesel, "0", "0");
-
+    printf("%s", userId);
+    fprintf(fptr, "%s;%s;%s;%s;%s;%s;%s\n", userId, userName, userSurname, userAddress, userPesel, "0", "0");
+ 
+    free(userId);
     free(userName);
     free(userSurname);
     free(userAddress);
