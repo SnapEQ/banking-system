@@ -255,6 +255,14 @@ void storeNewUser()
         fclose(fptr);
         return;
     }
+
+    int peselLine = findUser(userPesel, PESEL); 
+    if (peselLine >= 0)
+    {
+        printf("There is a person with such pesel existing in the database! \nThe user was not registered");
+        return;
+    }
+
     printf("%s", userId);
     fprintf(fptr, "%s;%s;%s;%s;%s;%s;%s\n", userId, userName, userSurname, userAddress, userPesel, "0", "0");
  

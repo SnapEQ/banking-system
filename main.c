@@ -6,7 +6,8 @@
 int main(int argc, char *argv[])
 {
     srand((unsigned)time(NULL));
-    int k = findUser("8ii3", ID);
+    storeNewUser();
+    int k = findUser("06321204451", PESEL);
     printf("\n%d\n", k);
     return 0;
 }
