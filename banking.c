@@ -471,7 +471,11 @@ int transfer(const char *fromUserId, const char *toUserId, long amount)
     int d = makeDeposit(toUserId, amount);
     if (d != 0)
     {
-        makeDeposit(fromUserId, amount);
+        int rollback = makeDeposit(fromUserId, amount);
+        if (rollback != 0)
+        {
+            return -2;
+        }
         return d;
     }
 
