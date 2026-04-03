@@ -524,6 +524,42 @@ int makeOperation(operationType operationType, const char *firstUserId, const ch
     return res;
 }
 
+void printUserFormatted(const char *line)
+{
+    if (line == NULL)
+    {
+        return;
+    }
+
+    char *copy = strdup(line);
+    if (copy == NULL)
+    {
+        return;
+    }
+
+    char *fields[7] = {0};
+    int fieldCount = splitUserLine(copy, fields);
+    if (fieldCount != 7)
+    {
+        printf("%s", line);
+        free(copy);
+        return;
+    }
+
+    trimNewline(fields[6]);
+    printf("+----------------------------------------+\n");
+    printf("| ID      : %-28s |\n", fields[0]);
+    printf("| Name    : %-28s |\n", fields[1]);
+    printf("| Surname : %-28s |\n", fields[2]);
+    printf("| Address : %-28s |\n", fields[3]);
+    printf("| PESEL   : %-28s |\n", fields[4]);
+    printf("| Balance : %-28s |\n", fields[5]);
+    printf("| Status  : %-28s |\n", fields[6]);
+    printf("+----------------------------------------+\n");
+
+    free(copy);
+}
+
 void listUser(int lineSearchNum) {
     FILE *fptr;
     fptr = fopen("db.txt", "r");
@@ -541,8 +577,7 @@ void listUser(int lineSearchNum) {
     while (getline(&line, &len, fptr) != -1)
     {
         if (lineIdx == lineSearchNum) {
-            printf("%s", line);
-            fflush(stdout);
+            printUserFormatted(line);
             free(line);
             fclose(fptr);
             return;
@@ -569,8 +604,7 @@ void listAllUsers() {
 
     while ((read = getline(&line, &len, fptr)) != -1)
     {
-        printf("%s", line);
-        fflush(stdout);
+        printUserFormatted(line);
     }
 
     free(line);
@@ -779,14 +813,18 @@ void operationsSubmenu() {
 
         const OperationOption *opt = &OPERATION_OPTIONS[choice - 1];
 
-        char *userIdValidated = readValidatedValueOperation(opt);
+        char *userIdValidated = NULL;
         char *secondUserIdValidated = NULL;
+
+        userIdValidated = readValidatedValueOperation(opt);
         if (!userIdValidated) continue;
 
         if (opt->type == TRANSFER) {
             secondUserIdValidated = readValidatedValueOperation(opt);
             if(!secondUserIdValidated){
+                printf("Second user id is required for transfer.\n");
                 free(userIdValidated);
+                waitForEnter();
                 continue;
             } 
         }
@@ -801,6 +839,7 @@ void operationsSubmenu() {
                 printf("Operation failed\n");
                 free(userIdValidated);
                 free(secondUserIdValidated);
+                waitForEnter();
                 continue;
             }
         }
