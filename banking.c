@@ -256,52 +256,6 @@ char *generateId()
     return NULL;
 }
 
-void storeNewUser()
-{
-    FILE *fptr;
-
-    fptr = fopen("db.txt", "a+");
-    if (fptr == NULL)
-    {
-        return;
-    }
-
-    size_t length = 0; 
-    char *userId = generateId();
-    char *userName = getUserName(&length);
-    char *userSurname = getUserSurname(&length);
-    char *userAddress = getUserAddress(&length);
-    char *userPesel = getUserPesel(&length);
-
-    if (userId == NULL || userName == NULL || userSurname == NULL || userAddress == NULL || userPesel == NULL)
-    {
-        free(userId);
-        free(userName);
-        free(userSurname);
-        free(userAddress);
-        free(userPesel);
-        fclose(fptr);
-        return;
-    }
-
-    int peselLine = findUser(userPesel, PESEL); 
-    if (peselLine >= 0)
-    {
-        printf("There is a person with such pesel existing in the database! \nThe user was not registered");
-        return;
-    }
-
-    printf("%s", userId);
-    fprintf(fptr, "%s;%s;%s;%s;%s;%s;%s\n", userId, userName, userSurname, userAddress, userPesel, "0", "0");
- 
-    free(userId);
-    free(userName);
-    free(userSurname);
-    free(userAddress);
-    free(userPesel);
-    fclose(fptr);
-}
-
 void trimNewline(char *s)
 {
     if (s == NULL)
@@ -674,6 +628,59 @@ void listUserSubmenu() {
     }
 }
 
+
+void storeNewUser()
+{
+    FILE *fptr;
+
+    fptr = fopen("db.txt", "a+");
+    if (fptr == NULL)
+    {
+        return;
+    }
+
+    clearScreen();
+
+    size_t length = 0; 
+    char *userId = generateId();
+    char *userName = getUserName(&length);
+    char *userSurname = getUserSurname(&length);
+    char *userAddress = getUserAddress(&length);
+
+    // TODO
+    // Validate user pesel
+    char *userPesel = getUserPesel(&length);
+
+    if (userId == NULL || userName == NULL || userSurname == NULL || userAddress == NULL || userPesel == NULL)
+    {
+        free(userId);
+        free(userName);
+        free(userSurname);
+        free(userAddress);
+        free(userPesel);
+        fclose(fptr);
+        return;
+    }
+
+    int peselLine = findUser(userPesel, PESEL); 
+    if (peselLine >= 0)
+    {
+        printf("There is a person with such pesel existing in the database! \nThe user was not registered");
+        return;
+    }
+
+    printf("Here is your bank account number: %s", userId);
+    fprintf(fptr, "%s;%s;%s;%s;%s;%s;%s\n", userId, userName, userSurname, userAddress, userPesel, "0", "0");
+ 
+    free(userId);
+    free(userName);
+    free(userSurname);
+    free(userAddress);
+    free(userPesel);
+    fclose(fptr);
+}
+
+
 void printMenu() {
     while (true) {
         clearScreen();
@@ -695,8 +702,11 @@ void printMenu() {
             case 2:
             case 3:
             case 4:
-            case 5:
                 printf("This option is not implemented yet.\n");
+                waitForEnter();
+                break;
+            case 5:
+                storeNewUser();
                 waitForEnter();
                 break;
             case 0:
