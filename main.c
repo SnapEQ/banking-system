@@ -6,6 +6,6 @@
 int main(int argc, char *argv[])
 {
     srand((unsigned)time(NULL));
-    listAllUsers();
+    initBankingSystem();
     return 0;
 }
