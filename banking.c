@@ -143,6 +143,9 @@ int findUser(const char *s, searchType type)
         case PESEL:
             maxSemiNo = 5;
             break;
+        default:
+            printf("Wrong type of search");
+            break;
     }
 
     while ((read = getline(&line, &len, fptr)) != -1) {
@@ -273,3 +276,27 @@ void storeNewUser()
     free(userPesel);
     fclose(fptr);
 }
+
+void listAllUsers() {
+    FILE *fptr;
+    fptr = fopen("db.txt", "r");
+
+    if (fptr == NULL)
+    {
+        return;
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+
+    while ((read = getline(&line, &len, fptr)) != -1)
+    {
+        printf("%s", line);
+        fflush(stdout);
+    }
+
+
+    fclose(fptr);
+}
+

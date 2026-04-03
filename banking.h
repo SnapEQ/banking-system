@@ -11,7 +11,8 @@ typedef enum{
 }searchType;
 
 void initBankingSystem();
-int findUser(const char *string, searchType type);
+int findUser(const char *s, searchType type);
 void storeNewUser();
+void listAllUsers();
 
 #endif
