@@ -11,6 +11,12 @@ typedef enum{
     PESEL
 }searchType;
 
+typedef enum{
+    DEPOSIT,
+    WITHDRAWAL,
+    TRANSFER
+}operationType;
+
 typedef bool (*Validator)(const char *);
 
 typedef struct {
@@ -19,10 +25,17 @@ typedef struct {
     Validator validate;
 } SearchOption;
 
+typedef struct {
+    operationType type;
+    const char *label;
+    Validator validate;
+} OperationOption;
+
 void initBankingSystem();
+void printMenu();
 int makeDeposit(const char *userId, long amount);
 int withdrawl(const char *userId, long amount);
 int transfer(const char *fromUserId, const char *toUserId, long amount);
-void printMenu();
+int makeOperation(operationType operationType, const char *firstUserId, const char *secondUserId, long amount);
 
 #endif

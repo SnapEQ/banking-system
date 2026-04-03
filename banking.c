@@ -1,10 +1,18 @@
 #include "banking.h"
+#include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <limits.h>
+
+
+//  TODO
+//  Display error when no id is found during operations
+//  Validate pesel upon registration
+
 
 const char ban[] = " _______                       __        __                     \n|       \\                     |  \\      |  \\                    \n| $$$$$$$\\  ______   _______  | $$   __  \\$$ _______    ______  \n| $$__/ $$ |      \\ |       \\ | $$  /  \\|  \\|       \\  /      \\ \n| $$    $$  \\$$$$$$\\| $$$$$$$\\| $$_/  $$| $$| $$$$$$$\\|  $$$$$$\\\n| $$$$$$$\\ /      $$| $$  | $$| $$   $$ | $$| $$  | $$| $$  | $$\n| $$__/ $$|  $$$$$$$| $$  | $$| $$$$$$\\ | $$| $$  | $$| $$__| $$\n| $$    $$ \\$$    $$| $$  | $$| $$  \\$$\\| $$| $$  | $$ \\$$    $$\n \\$$$$$$$   \\$$$$$$$ \\$$   \\$$ \\$$   \\$$ \\$$ \\$$   \\$$ _\\$$$$$$$\n                                                      |  \\__| $$\n                                                       \\$$    $$\n                                                        \\$$$$$$ \n  ______                         __                             \n /      \\                       |  \\                            \n|  $$$$$$\\ __    __   _______  _| $$_     ______   ______ ____  \n| $$___\\$$|  \\  |  \\ /       \\|   $$ \\   /      \\ |      \\    \\ \n \\$$    \\ | $$  | $$|  $$$$$$$ \\$$$$$$  |  $$$$$$\\| $$$$$$\\$$$$\\\n _\\$$$$$$\\| $$  | $$ \\$$    \\   | $$ __ | $$    $$| $$ | $$ | $$\n|  \\__| $$| $$__/ $$ _\\$$$$$$\\  | $$|  \\| $$$$$$$$| $$ | $$ | $$\n \\$$    $$ \\$$    $$|       $$   \\$$  $$ \\$$     \\| $$ | $$ | $$\n  \\$$$$$$  _\\$$$$$$$ \\$$$$$$$     \\$$$$   \\$$$$$$$ \\$$  \\$$  \\$$\n          |  \\__| $$                                            \n           \\$$    $$                                            \n            \\$$$$$$                                             \n";
 
@@ -31,6 +39,10 @@ char *getUserInput(size_t *length)
 
         if (*length + 1 >= buffSize)
         {
+            if (buffSize > SIZE_MAX / 2) {
+                free(buffer);
+                return NULL;
+            }
 
             buffSize *= 2;
             char *tmp = realloc(buffer, buffSize);
@@ -150,8 +162,8 @@ int findUser(const char *s, searchType type)
             maxSemiNo = 5;
             break;
         default:
-            printf("Wrong type of search");
-            break;
+            fclose(fptr);
+            return -2;
     }
 
     while ((read = getline(&line, &len, fptr)) != -1) {
@@ -288,9 +300,38 @@ int splitUserLine(char *line, char **fields)
 
 int calculateNextBalance(const char *balanceField, long delta, bool checkFunds, long *nextBalance)
 {
+    if (balanceField == NULL || nextBalance == NULL)
+    {
+        return -2;
+    }
+
+    if (balanceField[0] == '\0')
+    {
+        return -2;
+    }
+
+    for (size_t i = 0; balanceField[i] != '\0'; i++)
+    {
+        if (!isdigit((unsigned char)balanceField[i]))
+        {
+            return -2;
+        }
+    }
+
     char *endptr = NULL;
+    errno = 0;
     long currentBalance = strtol(balanceField, &endptr, 10);
-    if (endptr == balanceField)
+    if (endptr == balanceField || errno != 0 || *endptr != '\0')
+    {
+        return -2;
+    }
+
+    if (delta > 0 && currentBalance > LONG_MAX - delta)
+    {
+        return -2;
+    }
+
+    if (delta < 0 && currentBalance < LONG_MIN - delta)
     {
         return -2;
     }
@@ -401,7 +442,6 @@ int updateUserBalance(const char *userId, long delta, bool checkFunds)
         return -1;
     }
 
-    remove("db.txt");
     if (rename("db.tmp", "db.txt") != 0)
     {
         remove("db.tmp");
@@ -421,7 +461,7 @@ int makeDeposit(const char *userId, long amount)
     return updateUserBalance(userId, amount, false);
 }
 
-int withdrawl(const char *userId, long amount)
+int withdrawal(const char *userId, long amount)
 {
     if (amount <= 0)
     {
@@ -443,7 +483,7 @@ int transfer(const char *fromUserId, const char *toUserId, long amount)
         return 0;
     }
 
-    int w = withdrawl(fromUserId, amount);
+    int w = withdrawal(fromUserId, amount);
     if (w != 0)
     {
         return w;
@@ -463,6 +503,27 @@ int transfer(const char *fromUserId, const char *toUserId, long amount)
     return 0;
 }
 
+int makeOperation(operationType operationType, const char *firstUserId, const char *secondUserId, long amount) {
+    if (firstUserId == NULL) return -1;
+    if (operationType == TRANSFER && secondUserId == NULL) return -1;
+
+    int res = 0;
+
+    switch (operationType){
+        case DEPOSIT: 
+            res = makeDeposit(firstUserId, amount);
+            break;
+        case WITHDRAWAL: 
+            res = withdrawal(firstUserId, amount);
+            break;
+        case TRANSFER:
+            res = transfer(firstUserId, secondUserId, amount);
+            break;
+    }
+
+    return res;
+}
+
 void listUser(int lineSearchNum) {
     FILE *fptr;
     fptr = fopen("db.txt", "r");
@@ -474,20 +535,22 @@ void listUser(int lineSearchNum) {
 
     char *line = NULL;
     size_t len = 0;
-    ssize_t read;
 
     int lineIdx = 0;
 
-    while ((read = getline(&line, &len, fptr)) != 1)
+    while (getline(&line, &len, fptr) != -1)
     {
         if (lineIdx == lineSearchNum) {
             printf("%s", line);
             fflush(stdout);
+            free(line);
+            fclose(fptr);
             return;
         }
         lineIdx++;
     }
     printf("Incorrect line index \n");
+    free(line);
     fclose(fptr);
 }
 
@@ -510,7 +573,7 @@ void listAllUsers() {
         fflush(stdout);
     }
 
-
+    free(line);
     fclose(fptr);
 }
 
@@ -547,6 +610,47 @@ int readIntInRange(const char *prompt, int min, int max) {
     }
 }
 
+long readLongInRange(const char *prompt, long min ,long max) {
+    char buf[64];
+    char *end;
+    long v;
+
+    while (true) {
+        printf("%s", prompt);
+        if (!fgets(buf, sizeof(buf), stdin)) return 0;
+
+        errno = 0;
+        v = strtol(buf, &end, 10);
+
+        if (errno == 0 && end != buf && (*end == '\n' || *end == '\0') && v >= min && v <= max) {
+            return v;
+        }
+
+        printf("Invalid choice, Enter %ld-%ld.\n", min, max);
+    }
+}
+
+char readConfirmation(const char *prompt, char def) {
+    char buf[8];
+    def = (char)tolower((unsigned char)def);
+
+    while (true) {
+        printf("%s", prompt);
+        fflush(stdout);
+
+        if(!fgets(buf, sizeof(buf), stdin)) return def;
+        if (buf[0] == '\n') return def;
+
+        char c = (char)tolower((unsigned char)buf[0]);
+
+        if ((c== 'y' || c == 'n') && (buf[1] == '\n' || buf[1] == '\0')) {
+            return c;
+        }
+
+        printf("Type Y or n.\n");
+    }
+}
+
 bool validateNonEmpty(const char *s) {
     return s != NULL && s[0] != '\0';
 }
@@ -579,6 +683,17 @@ int searchOptionsCount() {
     return (int)(sizeof(SEARCH_OPTIONS) / sizeof(SEARCH_OPTIONS[0]));
 }
 
+
+const OperationOption OPERATION_OPTIONS[] = {
+    { DEPOSIT,    "Deposit",    validateId },
+    { WITHDRAWAL,  "Withdrawal",  validateId },
+    { TRANSFER,   "Transfer",   validateId },
+};
+
+int operationOptionsCount() {
+    return (int)(sizeof(OPERATION_OPTIONS) / sizeof(OPERATION_OPTIONS[0]));
+}
+
 char *readValidatedValue(const SearchOption *opt) {
     while (1) {
         size_t len = 0;
@@ -595,6 +710,24 @@ char *readValidatedValue(const SearchOption *opt) {
         free(value);
     }
 }
+
+char *readValidatedValueOperation(const OperationOption *opt) {
+    while (1) {
+        size_t len = 0;
+        printf("Enter Id (0 to go back): ");
+        fflush(stdout);
+
+        char *value = getUserInput(&len);
+        if (!value) return NULL;
+        if (strcmp(value, "0") == 0) { free(value); return NULL; }
+
+        if (opt->validate(value)) return value;
+
+        printf("Invalid ID format.\n");
+        free(value);
+    }
+}
+
 
 void listUserSubmenu() {
     while (true) {
@@ -630,6 +763,53 @@ void listUserSubmenu() {
     }
 }
 
+void operationsSubmenu() {
+    while (true) {
+        clearScreen();
+        printf("=== Operations ===\n");
+        for (int i = 0; i < operationOptionsCount(); i++) {
+            printf("%d. %s\n", i + 1, OPERATION_OPTIONS[i].label);
+        }
+        printf("0. Back\n\n");
+
+        int choice = readIntInRange("Choose: ", 0, operationOptionsCount());
+
+        if (choice == 0 ) return;
+
+
+        const OperationOption *opt = &OPERATION_OPTIONS[choice - 1];
+
+        char *userIdValidated = readValidatedValueOperation(opt);
+        char *secondUserIdValidated = NULL;
+        if (!userIdValidated) continue;
+
+        if (opt->type == TRANSFER) {
+            secondUserIdValidated = readValidatedValueOperation(opt);
+            if(!secondUserIdValidated){
+                free(userIdValidated);
+                continue;
+            } 
+        }
+
+        long amount = readLongInRange("Enter amount: ", 1,LONG_MAX);
+
+        if (amount == 0l) {
+            printf("Line parsing went wrong, Try again\n");
+        } else if (readConfirmation("Do you want to proceed? (Y/n): ", 'n') == 'y') {
+            int res = makeOperation(opt->type, userIdValidated, secondUserIdValidated, amount);
+            if (res < 0) {
+                printf("Operation failed\n");
+                free(userIdValidated);
+                free(secondUserIdValidated);
+                continue;
+            }
+        }
+        
+        free(secondUserIdValidated);
+        free(userIdValidated);
+        waitForEnter();
+    }
+}
 
 void storeNewUser()
 {
@@ -649,8 +829,6 @@ void storeNewUser()
     char *userSurname = getUserSurname(&length);
     char *userAddress = getUserAddress(&length);
 
-    // TODO
-    // Validate user pesel
     char *userPesel = getUserPesel(&length);
 
     if (userId == NULL || userName == NULL || userSurname == NULL || userAddress == NULL || userPesel == NULL)
@@ -664,10 +842,29 @@ void storeNewUser()
         return;
     }
 
-    int peselLine = findUser(userPesel, PESEL); 
+    int peselLine = findUser(userPesel, PESEL);
+    if (peselLine == -2)
+    {
+        printf("Could not validate PESEL due to a database error.\n");
+        free(userId);
+        free(userName);
+        free(userSurname);
+        free(userAddress);
+        free(userPesel);
+        fclose(fptr);
+        return;
+    }
+
     if (peselLine >= 0)
     {
         printf("There is a person with such pesel existing in the database! \nThe user was not registered");
+        free(userId);
+        free(userName);
+        free(userSurname);
+        free(userAddress);
+        free(userPesel);
+        fclose(fptr);
+
         return;
     }
 
@@ -689,25 +886,20 @@ void printMenu() {
         printf("%s\n", ban);
         printf("List of operations\n");
         printf("1 List user\n");
-        printf("2 Make deposit\n");
-        printf("3 Make withdrawl\n");
-        printf("4 Transfer money\n");
-        printf("5 Register account\n");
+        printf("2 Operations\n");
+        printf("3 Register account\n");
         printf("0 Exit\n\n");
 
-        int choice = readIntInRange("Choose: ", 0, 5);
+        int choice = readIntInRange("Choose: ", 0, 3);
 
         switch (choice) {
             case 1:
                 listUserSubmenu();
                 break;
             case 2:
-            case 3:
-            case 4:
-                printf("This option is not implemented yet.\n");
-                waitForEnter();
+                operationsSubmenu();
                 break;
-            case 5:
+            case 3:
                 storeNewUser();
                 waitForEnter();
                 break;
