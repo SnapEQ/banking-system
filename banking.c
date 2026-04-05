@@ -54,6 +54,11 @@ char *getUserInput(size_t *length)
 
             buffer = tmp;
         }
+
+        if ((char)ch == ';') {
+            continue;
+        }
+
         buffer[(*length)++] = (char)ch;
     }
 
