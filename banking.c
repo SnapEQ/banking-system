@@ -8,15 +8,14 @@
 #include <ctype.h>
 #include <limits.h>
 
-
 //  TODO
 //  Display error when no id is found during operations
 //  Validate pesel upon registration
 
-
 const char ban[] = " _______                       __        __                     \n|       \\                     |  \\      |  \\                    \n| $$$$$$$\\  ______   _______  | $$   __  \\$$ _______    ______  \n| $$__/ $$ |      \\ |       \\ | $$  /  \\|  \\|       \\  /      \\ \n| $$    $$  \\$$$$$$\\| $$$$$$$\\| $$_/  $$| $$| $$$$$$$\\|  $$$$$$\\\n| $$$$$$$\\ /      $$| $$  | $$| $$   $$ | $$| $$  | $$| $$  | $$\n| $$__/ $$|  $$$$$$$| $$  | $$| $$$$$$\\ | $$| $$  | $$| $$__| $$\n| $$    $$ \\$$    $$| $$  | $$| $$  \\$$\\| $$| $$  | $$ \\$$    $$\n \\$$$$$$$   \\$$$$$$$ \\$$   \\$$ \\$$   \\$$ \\$$ \\$$   \\$$ _\\$$$$$$$\n                                                      |  \\__| $$\n                                                       \\$$    $$\n                                                        \\$$$$$$ \n  ______                         __                             \n /      \\                       |  \\                            \n|  $$$$$$\\ __    __   _______  _| $$_     ______   ______ ____  \n| $$___\\$$|  \\  |  \\ /       \\|   $$ \\   /      \\ |      \\    \\ \n \\$$    \\ | $$  | $$|  $$$$$$$ \\$$$$$$  |  $$$$$$\\| $$$$$$\\$$$$\\\n _\\$$$$$$\\| $$  | $$ \\$$    \\   | $$ __ | $$    $$| $$ | $$ | $$\n|  \\__| $$| $$__/ $$ _\\$$$$$$\\  | $$|  \\| $$$$$$$$| $$ | $$ | $$\n \\$$    $$ \\$$    $$|       $$   \\$$  $$ \\$$     \\| $$ | $$ | $$\n  \\$$$$$$  _\\$$$$$$$ \\$$$$$$$     \\$$$$   \\$$$$$$$ \\$$  \\$$  \\$$\n          |  \\__| $$                                            \n           \\$$    $$                                            \n            \\$$$$$$                                             \n";
 
-void initBankingSystem() {
+void initBankingSystem()
+{
     printMenu();
 }
 
@@ -39,7 +38,8 @@ char *getUserInput(size_t *length)
 
         if (*length + 1 >= buffSize)
         {
-            if (buffSize > SIZE_MAX / 2) {
+            if (buffSize > SIZE_MAX / 2)
+            {
                 free(buffer);
                 return NULL;
             }
@@ -55,7 +55,8 @@ char *getUserInput(size_t *length)
             buffer = tmp;
         }
 
-        if ((char)ch == ';') {
+        if ((char)ch == ';')
+        {
             continue;
         }
 
@@ -131,16 +132,53 @@ char *getUserPesel(size_t *length)
     return input;
 }
 
+char *getRegistrationNo(size_t *length)
+{
+    printf("Provide your registration number (7-16 letters/digits):  ");
+    fflush(stdout);
+    char *input = getUserInput(length);
+
+    if (input == NULL)
+    {
+        return NULL;
+    }
+
+    if (*length < 7 || *length > 16)
+    {
+        free(input);
+        return NULL;
+    }
+
+    for (size_t i = 0; i < *length; i++)
+    {
+        if (!isalnum((unsigned char)input[i]))
+        {
+            free(input);
+            return NULL;
+        }
+    }
+
+    if (strlen(input) != *length)
+    {
+        free(input);
+        return NULL;
+    }
+
+    return input;
+}
+
 int findUser(const char *s, searchType type)
 {
     FILE *fptr;
 
-    if (s == NULL) {
+    if (s == NULL)
+    {
         return -2;
     }
 
     fptr = fopen("db.txt", "r");
-    if (fptr == NULL) {
+    if (fptr == NULL)
+    {
         return -2;
     }
 
@@ -150,47 +188,53 @@ int findUser(const char *s, searchType type)
     int lineNum = 0;
     int maxSemiNo = 0;
 
-    switch (type){
-        case ID:
-            maxSemiNo = 1;
-            break;
-        case NAME:
-            maxSemiNo = 2;
-            break;
-        case SURNAME:
-            maxSemiNo = 3;
-            break;
-        case ADDRESS:
-            maxSemiNo = 4;
-            break;
-        case PESEL:
-            maxSemiNo = 5;
-            break;
-        default:
-            fclose(fptr);
-            return -2;
+    switch (type)
+    {
+    case ID:
+        maxSemiNo = 1;
+        break;
+    case NAME:
+        maxSemiNo = 2;
+        break;
+    case SURNAME:
+        maxSemiNo = 3;
+        break;
+    case ADDRESS:
+        maxSemiNo = 4;
+        break;
+    case PESEL:
+        maxSemiNo = 5;
+        break;
+    default:
+        fclose(fptr);
+        return -2;
     }
 
-    while ((read = getline(&line, &len, fptr)) != -1) {
+    while ((read = getline(&line, &len, fptr)) != -1)
+    {
         size_t index = 0;
         int howManySemi = 0;
         size_t buffSize = 256;
         size_t buffIndex = 0;
         char *buff = malloc(buffSize * sizeof(char));
 
-        if (buff == NULL) {
+        if (buff == NULL)
+        {
             free(line);
             fclose(fptr);
             return -2;
         }
 
-        while(howManySemi < maxSemiNo && line[index] != '\0') {
+        while (howManySemi < maxSemiNo && line[index] != '\0')
+        {
 
             if (howManySemi == maxSemiNo - 1 && line[index] != ';')
             {
 
-                if (buffIndex + 1 >= buffSize) {
-                    if (buffSize > ((size_t)-1) / 2) {
+                if (buffIndex + 1 >= buffSize)
+                {
+                    if (buffSize > ((size_t)-1) / 2)
+                    {
                         free(buff);
                         free(line);
                         fclose(fptr);
@@ -198,7 +242,8 @@ int findUser(const char *s, searchType type)
                     }
                     buffSize *= 2;
                     char *tmp = realloc(buff, buffSize);
-                    if (tmp == NULL) {
+                    if (tmp == NULL)
+                    {
                         free(buff);
                         free(line);
                         fclose(fptr);
@@ -210,13 +255,15 @@ int findUser(const char *s, searchType type)
                 buff[buffIndex++] = line[index];
             }
 
-            if (line[index] == ';') {
+            if (line[index] == ';')
+            {
                 howManySemi++;
             }
             index++;
         }
 
-        if (howManySemi < maxSemiNo) {
+        if (howManySemi < maxSemiNo)
+        {
             free(buff);
             lineNum++;
             continue;
@@ -224,8 +271,8 @@ int findUser(const char *s, searchType type)
 
         buff[buffIndex] = '\0';
 
-
-        if (strcmp(s, buff) == 0) {
+        if (strcmp(s, buff) == 0)
+        {
             free(buff);
             free(line);
             fclose(fptr);
@@ -236,7 +283,8 @@ int findUser(const char *s, searchType type)
         lineNum++;
     }
 
-    if (line) {
+    if (line)
+    {
         free(line);
     }
 
@@ -249,23 +297,27 @@ char *generateId()
     static const char alpha[] = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     const int maxAttempts = 10000;
 
-
     char *id = malloc(5);
-    if (id == NULL) {
+    if (id == NULL)
+    {
         return NULL;
     }
 
-    for (int attempt = 0; attempt < maxAttempts; attempt++) {
-        for (int i = 0; i < 4; i++) {
+    for (int attempt = 0; attempt < maxAttempts; attempt++)
+    {
+        for (int i = 0; i < 4; i++)
+        {
             id[i] = alpha[rand() % (sizeof(alpha) - 1)];
         }
         id[4] = '\0';
 
         int r = findUser(id, ID);
-        if (r == -1) {
+        if (r == -1)
+        {
             return id;
         }
-        if (r == -2) {
+        if (r == -2)
+        {
             free(id);
             return NULL;
         }
@@ -294,7 +346,7 @@ int splitUserLine(char *line, char **fields)
     int i = 0;
     char *token = strtok(line, ";");
 
-    while (token != NULL && i < 7)
+    while (token != NULL && i < 6)
     {
         fields[i++] = token;
         token = strtok(NULL, ";");
@@ -352,15 +404,13 @@ int calculateNextBalance(const char *balanceField, long delta, bool checkFunds, 
 
 void writeUserLineWithNewBalance(FILE *dst, char **fields, long nextBalance)
 {
-    trimNewline(fields[6]);
-    fprintf(dst, "%s;%s;%s;%s;%s;%ld;%s\n",
+    fprintf(dst, "%s;%s;%s;%s;%s;%ld\n",
             fields[0],
             fields[1],
             fields[2],
             fields[3],
             fields[4],
-            nextBalance,
-            fields[6]);
+            nextBalance);
 }
 
 int processBalanceLine(FILE *dst, const char *line, const char *userId, long delta, bool checkFunds, bool *updated)
@@ -371,10 +421,10 @@ int processBalanceLine(FILE *dst, const char *line, const char *userId, long del
         return -2;
     }
 
-    char *fields[7] = {0};
+    char *fields[6] = {0};
     int fieldCount = splitUserLine(copy, fields);
 
-    if (fieldCount == 7 && strcmp(fields[0], userId) == 0)
+    if (fieldCount >= 6 && strcmp(fields[0], userId) == 0)
     {
         long nextBalance = 0;
         int calcResult = calculateNextBalance(fields[5], delta, checkFunds, &nextBalance);
@@ -508,25 +558,146 @@ int transfer(const char *fromUserId, const char *toUserId, long amount)
     return 0;
 }
 
-int makeOperation(operationType operationType, const char *firstUserId, const char *secondUserId, long amount) {
-    if (firstUserId == NULL) return -1;
-    if (operationType == TRANSFER && secondUserId == NULL) return -1;
+int makeOperation(operationType operationType, const char *firstUserId, const char *secondUserId, long amount)
+{
+    if (firstUserId == NULL)
+        return -1;
+    if (operationType == TRANSFER && secondUserId == NULL)
+        return -1;
 
     int res = 0;
 
-    switch (operationType){
-        case DEPOSIT: 
-            res = makeDeposit(firstUserId, amount);
-            break;
-        case WITHDRAWAL: 
-            res = withdrawal(firstUserId, amount);
-            break;
-        case TRANSFER:
-            res = transfer(firstUserId, secondUserId, amount);
-            break;
+    switch (operationType)
+    {
+    case DEPOSIT:
+        res = makeDeposit(firstUserId, amount);
+        break;
+    case WITHDRAWAL:
+        res = withdrawal(firstUserId, amount);
+        break;
+    case TRANSFER:
+        res = transfer(firstUserId, secondUserId, amount);
+        break;
     }
 
     return res;
+}
+
+int takeOutInsurance(const char *userId, const char *registrationNo, long amount)
+{
+    if (!userId || !registrationNo || amount <= 0)
+    {
+        return -2;
+    }
+
+    if (findUser(userId, ID) < 0)
+    {
+        return -1;
+    }
+
+    FILE *fptr = fopen("ins.txt", "a+");
+    if (fptr == NULL)
+    {
+        return -2;
+    }
+
+    rewind(fptr);
+    char *line = NULL;
+    size_t len = 0;
+
+    while (getline(&line, &len, fptr) != -1)
+    {
+        char *copy = strdup(line);
+        if (copy == NULL)
+        {
+            free(line);
+            fclose(fptr);
+            return -2;
+        }
+
+        char *token = strtok(copy, ";");
+        token = strtok(NULL, ";");
+
+        if (token != NULL && strcmp(token, registrationNo) == 0)
+        {
+            free(copy);
+            free(line);
+            fclose(fptr);
+            return -3;
+        }
+
+        free(copy);
+    }
+
+    free(line);
+
+    if (fprintf(fptr, "%s;%s;%ld\n", userId, registrationNo, amount) < 0)
+    {
+        fclose(fptr);
+        return -2;
+    }
+
+    fclose(fptr);
+    return 0;
+}
+
+void printUserInsurances(const char *userId)
+{
+    printf("+----------------------------------------+\n");
+    printf("| Insurances                             |\n");
+    printf("+----------------------------------------+\n");
+
+    if (userId == NULL)
+    {
+        printf("| %-38s |\n", "none");
+        printf("+----------------------------------------+\n");
+        return;
+    }
+
+    FILE *fptr = fopen("ins.txt", "r");
+    if (fptr == NULL)
+    {
+        printf("| %-38s |\n", "none");
+        printf("+----------------------------------------+\n");
+        return;
+    }
+
+    char *line = NULL;
+    size_t len = 0;
+    bool hasInsurance = false;
+
+    while (getline(&line, &len, fptr) != -1)
+    {
+        char *copy = strdup(line);
+        if (copy == NULL)
+        {
+            continue;
+        }
+
+        char *insuranceUserId = strtok(copy, ";");
+        char *registrationNo = strtok(NULL, ";");
+        char *amount = strtok(NULL, ";");
+
+        if (insuranceUserId != NULL && registrationNo != NULL && amount != NULL && strcmp(insuranceUserId, userId) == 0)
+        {
+            trimNewline(amount);
+            printf("| Registration: %-24s |\n", registrationNo);
+            printf("| Yearly: %-30s |\n", amount);
+            printf("+----------------------------------------+\n");
+            hasInsurance = true;
+        }
+
+        free(copy);
+    }
+
+    if (!hasInsurance)
+    {
+        printf("| %-38s |\n", "none");
+        printf("+----------------------------------------+\n");
+    }
+
+    free(line);
+    fclose(fptr);
 }
 
 void printUserFormatted(const char *line)
@@ -542,16 +713,16 @@ void printUserFormatted(const char *line)
         return;
     }
 
-    char *fields[7] = {0};
+    char *fields[6] = {0};
     int fieldCount = splitUserLine(copy, fields);
-    if (fieldCount != 7)
+    if (fieldCount < 6)
     {
         printf("%s", line);
         free(copy);
         return;
     }
 
-    trimNewline(fields[6]);
+    trimNewline(fields[5]);
     printf("+----------------------------------------+\n");
     printf("| ID      : %-28s |\n", fields[0]);
     printf("| Name    : %-28s |\n", fields[1]);
@@ -559,13 +730,15 @@ void printUserFormatted(const char *line)
     printf("| Address : %-28s |\n", fields[3]);
     printf("| PESEL   : %-28s |\n", fields[4]);
     printf("| Balance : %-28s |\n", fields[5]);
-    printf("| Status  : %-28s |\n", fields[6]);
     printf("+----------------------------------------+\n");
+    printUserInsurances(fields[0]);
+    printf("\n");
 
     free(copy);
 }
 
-void listUser(int lineSearchNum) {
+void listUser(int lineSearchNum)
+{
     FILE *fptr;
     fptr = fopen("db.txt", "r");
 
@@ -581,7 +754,8 @@ void listUser(int lineSearchNum) {
 
     while (getline(&line, &len, fptr) != -1)
     {
-        if (lineIdx == lineSearchNum) {
+        if (lineIdx == lineSearchNum)
+        {
             printUserFormatted(line);
             free(line);
             fclose(fptr);
@@ -594,7 +768,8 @@ void listUser(int lineSearchNum) {
     fclose(fptr);
 }
 
-void listAllUsers() {
+void listAllUsers()
+{
     FILE *fptr;
     fptr = fopen("db.txt", "r");
 
@@ -616,32 +791,39 @@ void listAllUsers() {
     fclose(fptr);
 }
 
-void clearScreen() {
+void clearScreen()
+{
     printf("\033[2J\033[H");
     fflush(stdout);
 }
 
-void waitForEnter() {
+void waitForEnter()
+{
     int ch;
     printf("\nPress Enter to continue...");
     fflush(stdout);
-    while ((ch = getchar()) != '\n' && ch != EOF) {
+    while ((ch = getchar()) != '\n' && ch != EOF)
+    {
     }
 }
 
-int readIntInRange(const char *prompt, int min, int max) {
+int readIntInRange(const char *prompt, int min, int max)
+{
     char buf[32];
     char *end;
     long v;
 
-    while (true) {
+    while (true)
+    {
         printf("%s", prompt);
-        if (!fgets(buf, sizeof(buf), stdin)) return min;
+        if (!fgets(buf, sizeof(buf), stdin))
+            return min;
 
         errno = 0;
         v = strtol(buf, &end, 10);
 
-        if (errno == 0 && end != buf && (*end == '\n' || *end == '\0') && v >= min && v <= max) {
+        if (errno == 0 && end != buf && (*end == '\n' || *end == '\0') && v >= min && v <= max)
+        {
             return (int)v;
         }
 
@@ -649,19 +831,23 @@ int readIntInRange(const char *prompt, int min, int max) {
     }
 }
 
-long readLongInRange(const char *prompt, long min ,long max) {
+long readLongInRange(const char *prompt, long min, long max)
+{
     char buf[64];
     char *end;
     long v;
 
-    while (true) {
+    while (true)
+    {
         printf("%s", prompt);
-        if (!fgets(buf, sizeof(buf), stdin)) return 0;
+        if (!fgets(buf, sizeof(buf), stdin))
+            return 0;
 
         errno = 0;
         v = strtol(buf, &end, 10);
 
-        if (errno == 0 && end != buf && (*end == '\n' || *end == '\0') && v >= min && v <= max) {
+        if (errno == 0 && end != buf && (*end == '\n' || *end == '\0') && v >= min && v <= max)
+        {
             return v;
         }
 
@@ -669,20 +855,25 @@ long readLongInRange(const char *prompt, long min ,long max) {
     }
 }
 
-char readConfirmation(const char *prompt, char def) {
+char readConfirmation(const char *prompt, char def)
+{
     char buf[8];
     def = (char)tolower((unsigned char)def);
 
-    while (true) {
+    while (true)
+    {
         printf("%s", prompt);
         fflush(stdout);
 
-        if(!fgets(buf, sizeof(buf), stdin)) return def;
-        if (buf[0] == '\n') return def;
+        if (!fgets(buf, sizeof(buf), stdin))
+            return def;
+        if (buf[0] == '\n')
+            return def;
 
         char c = (char)tolower((unsigned char)buf[0]);
 
-        if ((c== 'y' || c == 'n') && (buf[1] == '\n' || buf[1] == '\0')) {
+        if ((c == 'y' || c == 'n') && (buf[1] == '\n' || buf[1] == '\0'))
+        {
             return c;
         }
 
@@ -690,99 +881,217 @@ char readConfirmation(const char *prompt, char def) {
     }
 }
 
-bool validateNonEmpty(const char *s) {
+bool validateNonEmpty(const char *s)
+{
     return s != NULL && s[0] != '\0';
 }
 
-bool validateId(const char *s) {
-    if (!s || strlen(s) != 4) return false;
-    for (int i = 0; i < 4; i++) {
-        if (!isalnum((unsigned char)s[i])) return false;
+bool validateId(const char *s)
+{
+    if (!s || strlen(s) != 4)
+        return false;
+    for (int i = 0; i < 4; i++)
+    {
+        if (!isalnum((unsigned char)s[i]))
+            return false;
     }
     return true;
 }
 
-bool validatePesel(const char *s) {
-    if (!s || strlen(s) != 11) return false;
-    for (int i = 0; i < 11; i++) {
-        if (!isdigit((unsigned char)s[i])) return false;
+bool validatePesel(const char *s)
+{
+    if (!s || strlen(s) != 11)
+        return false;
+    for (int i = 0; i < 11; i++)
+    {
+        if (!isdigit((unsigned char)s[i]))
+            return false;
     }
     return true;
 }
 
 const SearchOption SEARCH_OPTIONS[] = {
-    { ID,       "ID",        validateId },
-    { NAME,     "Name",      validateNonEmpty },
-    { SURNAME,  "Surname",   validateNonEmpty },
-    { ADDRESS,  "Address",   validateNonEmpty },
-    { PESEL,    "PESEL",     validatePesel },
+    {ID, "ID", validateId},
+    {NAME, "Name", validateNonEmpty},
+    {SURNAME, "Surname", validateNonEmpty},
+    {ADDRESS, "Address", validateNonEmpty},
+    {PESEL, "PESEL", validatePesel},
 };
 
-int searchOptionsCount() {
+int searchOptionsCount()
+{
     return (int)(sizeof(SEARCH_OPTIONS) / sizeof(SEARCH_OPTIONS[0]));
 }
 
-
 const OperationOption OPERATION_OPTIONS[] = {
-    { DEPOSIT,    "Deposit",    validateId },
-    { WITHDRAWAL,  "Withdrawal",  validateId },
-    { TRANSFER,   "Transfer",   validateId },
+    {DEPOSIT, "Deposit", validateId},
+    {WITHDRAWAL, "Withdrawal", validateId},
+    {TRANSFER, "Transfer", validateId},
 };
 
-int operationOptionsCount() {
+int operationOptionsCount()
+{
     return (int)(sizeof(OPERATION_OPTIONS) / sizeof(OPERATION_OPTIONS[0]));
 }
 
-char *readValidatedValue(const SearchOption *opt) {
-    while (1) {
+char *readValidatedValue(const SearchOption *opt)
+{
+    while (1)
+    {
         size_t len = 0;
         printf("Enter %s (0 to go back): ", opt->label);
         fflush(stdout);
 
         char *value = getUserInput(&len);
-        if (!value) return NULL;
-        if (strcmp(value, "0") == 0) { free(value); return NULL; }
+        if (!value)
+            return NULL;
+        if (strcmp(value, "0") == 0)
+        {
+            free(value);
+            return NULL;
+        }
 
-        if (opt->validate(value)) return value;
+        if (opt->validate(value))
+            return value;
 
         printf("Invalid %s format.\n", opt->label);
         free(value);
     }
 }
 
-char *readValidatedValueOperation(const OperationOption *opt) {
-    while (1) {
+char *readValidatedValueOperation(const OperationOption *opt)
+{
+    while (1)
+    {
         size_t len = 0;
         printf("Enter Id (0 to go back): ");
         fflush(stdout);
 
         char *value = getUserInput(&len);
-        if (!value) return NULL;
-        if (strcmp(value, "0") == 0) { free(value); return NULL; }
+        if (!value)
+            return NULL;
+        if (strcmp(value, "0") == 0)
+        {
+            free(value);
+            return NULL;
+        }
 
-        if (opt->validate(value)) return value;
+        if (opt->validate(value))
+            return value;
 
         printf("Invalid ID format.\n");
         free(value);
     }
 }
 
+char *readValidatedID()
+{
+    while (1)
+    {
+        size_t len = 0;
+        printf("Enter Id (0 to go back): ");
+        fflush(stdout);
 
-void listUserSubmenu() {
-    while (true) {
-        clearScreen();
-        printf("=== List Users By ===\n");
-        for (int i = 0; i < searchOptionsCount(); i++) {
-            printf("%d. %s\n", i + 1, SEARCH_OPTIONS[i].label);
+        char *value = getUserInput(&len);
+        if (!value)
+            return NULL;
+        if (strcmp(value, "0") == 0)
+        {
+            free(value);
+            return NULL;
         }
-        printf("%d. All Users\n", searchOptionsCount()+1);
+
+        if (validateId(value))
+            return value;
+
+        printf("Invalid ID format.\n");
+        free(value);
+    }
+}
+
+void insuranceSubmenu()
+{
+    while (true)
+    {
+        clearScreen();
+        printf("=== Insurances ===\n");
+        printf("1. Take out insurance\n");
         printf("0. Back\n\n");
 
-        int choice = readIntInRange("Choose: ", 0, searchOptionsCount()+1);
+        int choice = readIntInRange("Choose: ", 0, 1);
 
-        if (choice == 0) return;
+        if (choice == 0)
+        {
+            return;
+        }
 
-        if (choice == searchOptionsCount()+1)
+        if (choice == 1)
+        {
+            char *userId = readValidatedID();
+            if (!userId)
+            {
+                continue;
+            }
+
+            size_t length = 0;
+            char *registrationNo = NULL;
+            registrationNo = getRegistrationNo(&length);
+            long amount = readLongInRange("Type in the amount of the yearly payment: ", 1, LONG_MAX);
+
+            int res = takeOutInsurance(userId, registrationNo, amount);
+
+            if (!registrationNo || res < 0)
+            {
+                if (!registrationNo)
+                {
+                    printf("Invalid registration number format.\n");
+                }
+                else if (res == -1)
+                {
+                    printf("User ID not found in database.\n");
+                }
+                else if (res == -3)
+                {
+                    printf("Insurance already exists for this registration number.\n");
+                }
+                else
+                {
+                    printf("Failed to take out insurance. Please try again.\n");
+                }
+
+                free(userId);
+                free(registrationNo);
+                waitForEnter();
+                continue;
+            }
+
+            printf("Insurance has been registered for user: %s\n", userId);
+            free(userId);
+            free(registrationNo);
+            waitForEnter();
+        }
+    }
+}
+
+void listUserSubmenu()
+{
+    while (true)
+    {
+        clearScreen();
+        printf("=== List Users By ===\n");
+        for (int i = 0; i < searchOptionsCount(); i++)
+        {
+            printf("%d. %s\n", i + 1, SEARCH_OPTIONS[i].label);
+        }
+        printf("%d. All Users\n", searchOptionsCount() + 1);
+        printf("0. Back\n\n");
+
+        int choice = readIntInRange("Choose: ", 0, searchOptionsCount() + 1);
+
+        if (choice == 0)
+            return;
+
+        if (choice == searchOptionsCount() + 1)
         {
             listAllUsers();
             waitForEnter();
@@ -791,30 +1100,36 @@ void listUserSubmenu() {
 
         const SearchOption *opt = &SEARCH_OPTIONS[choice - 1];
         char *value = readValidatedValue(opt);
-        if (!value) continue;
+        if (!value)
+            continue;
 
         int line = findUser(value, opt->type);
-        if (line >= 0) listUser(line);
-        else printf("User not found\n");
+        if (line >= 0)
+            listUser(line);
+        else
+            printf("User not found\n");
 
         free(value);
         waitForEnter();
     }
 }
 
-void operationsSubmenu() {
-    while (true) {
+void operationsSubmenu()
+{
+    while (true)
+    {
         clearScreen();
         printf("=== Operations ===\n");
-        for (int i = 0; i < operationOptionsCount(); i++) {
+        for (int i = 0; i < operationOptionsCount(); i++)
+        {
             printf("%d. %s\n", i + 1, OPERATION_OPTIONS[i].label);
         }
         printf("0. Back\n\n");
 
         int choice = readIntInRange("Choose: ", 0, operationOptionsCount());
 
-        if (choice == 0 ) return;
-
+        if (choice == 0)
+            return;
 
         const OperationOption *opt = &OPERATION_OPTIONS[choice - 1];
 
@@ -822,25 +1137,32 @@ void operationsSubmenu() {
         char *secondUserIdValidated = NULL;
 
         userIdValidated = readValidatedValueOperation(opt);
-        if (!userIdValidated) continue;
+        if (!userIdValidated)
+            continue;
 
-        if (opt->type == TRANSFER) {
+        if (opt->type == TRANSFER)
+        {
             secondUserIdValidated = readValidatedValueOperation(opt);
-            if(!secondUserIdValidated){
-                printf("Second user id is required for transfer.\n");
+            if (!secondUserIdValidated)
+            {
+                printf("Second user accountNumber is required for transfer.\n");
                 free(userIdValidated);
                 waitForEnter();
                 continue;
-            } 
+            }
         }
 
-        long amount = readLongInRange("Enter amount: ", 1,LONG_MAX);
+        long amount = readLongInRange("Enter amount: ", 1, LONG_MAX);
 
-        if (amount == 0l) {
+        if (amount == 0l)
+        {
             printf("Line parsing went wrong, Try again\n");
-        } else if (readConfirmation("Do you want to proceed? (Y/n): ", 'n') == 'y') {
+        }
+        else if (readConfirmation("Do you want to proceed? (Y/n): ", 'n') == 'y')
+        {
             int res = makeOperation(opt->type, userIdValidated, secondUserIdValidated, amount);
-            if (res < 0) {
+            if (res < 0)
+            {
                 printf("Operation failed\n");
                 free(userIdValidated);
                 free(secondUserIdValidated);
@@ -848,7 +1170,7 @@ void operationsSubmenu() {
                 continue;
             }
         }
-        
+
         free(secondUserIdValidated);
         free(userIdValidated);
         waitForEnter();
@@ -867,7 +1189,7 @@ void storeNewUser()
 
     clearScreen();
 
-    size_t length = 0; 
+    size_t length = 0;
     char *userId = generateId();
     char *userName = getUserName(&length);
     char *userSurname = getUserSurname(&length);
@@ -913,8 +1235,8 @@ void storeNewUser()
     }
 
     printf("Here is your bank account number: %s", userId);
-    fprintf(fptr, "%s;%s;%s;%s;%s;%s;%s\n", userId, userName, userSurname, userAddress, userPesel, "0", "0");
- 
+    fprintf(fptr, "%s;%s;%s;%s;%s;%s\n", userId, userName, userSurname, userAddress, userPesel, "0");
+
     free(userId);
     free(userName);
     free(userSurname);
@@ -923,34 +1245,40 @@ void storeNewUser()
     fclose(fptr);
 }
 
-
-void printMenu() {
-    while (true) {
+void printMenu()
+{
+    while (true)
+    {
         clearScreen();
         printf("%s\n", ban);
         printf("List of operations\n");
         printf("1 List user\n");
         printf("2 Operations\n");
         printf("3 Register account\n");
+        printf("4 Insurances\n");
         printf("0 Exit\n\n");
 
-        int choice = readIntInRange("Choose: ", 0, 3);
+        int choice = readIntInRange("Choose: ", 0, 4);
 
-        switch (choice) {
-            case 1:
-                listUserSubmenu();
-                break;
-            case 2:
-                operationsSubmenu();
-                break;
-            case 3:
-                storeNewUser();
-                waitForEnter();
-                break;
-            case 0:
-                return;
-            default:
-                break;
+        switch (choice)
+        {
+        case 1:
+            listUserSubmenu();
+            break;
+        case 2:
+            operationsSubmenu();
+            break;
+        case 3:
+            storeNewUser();
+            waitForEnter();
+            break;
+        case 4:
+            insuranceSubmenu();
+            break;
+        case 0:
+            return;
+        default:
+            break;
         }
     }
 }

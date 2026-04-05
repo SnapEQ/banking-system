@@ -4,3 +4,4 @@ main_asan.dSYM/
 *.exe
 main
 db.txt
+ins.txt
