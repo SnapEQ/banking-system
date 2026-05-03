@@ -124,7 +124,7 @@ char *getUserPesel(size_t *length)
     fflush(stdout);
     char *input = getUserInput(length);
 
-    if (input == NULL || *length > 11)
+    if (input == NULL)
     {
         return NULL;
     }
@@ -1199,6 +1199,18 @@ void storeNewUser()
 
     if (userId == NULL || userName == NULL || userSurname == NULL || userAddress == NULL || userPesel == NULL)
     {
+        free(userId);
+        free(userName);
+        free(userSurname);
+        free(userAddress);
+        free(userPesel);
+        fclose(fptr);
+        return;
+    }
+
+    if (!validatePesel(userPesel))
+    {
+        printf("Wrong pesel format");
         free(userId);
         free(userName);
         free(userSurname);
