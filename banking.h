@@ -17,6 +17,13 @@ typedef enum{
     TRANSFER
 }operationType;
 
+typedef enum{
+    RESULT_OK = 0,
+    RESULT_NOT_FOUND = -1,
+    RESULT_ERROR = -2,
+    RESULT_CONFLICT = -3
+} ResultCode;
+
 typedef bool (*Validator)(const char *);
 
 typedef struct {

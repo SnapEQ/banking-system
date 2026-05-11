@@ -8,10 +8,6 @@
 #include <ctype.h>
 #include <limits.h>
 
-//  TODO
-//  Display error when no id is found during operations
-//  Validate pesel upon registration
-
 const char ban[] = " _______                       __        __                     \n|       \\                     |  \\      |  \\                    \n| $$$$$$$\\  ______   _______  | $$   __  \\$$ _______    ______  \n| $$__/ $$ |      \\ |       \\ | $$  /  \\|  \\|       \\  /      \\ \n| $$    $$  \\$$$$$$\\| $$$$$$$\\| $$_/  $$| $$| $$$$$$$\\|  $$$$$$\\\n| $$$$$$$\\ /      $$| $$  | $$| $$   $$ | $$| $$  | $$| $$  | $$\n| $$__/ $$|  $$$$$$$| $$  | $$| $$$$$$\\ | $$| $$  | $$| $$__| $$\n| $$    $$ \\$$    $$| $$  | $$| $$  \\$$\\| $$| $$  | $$ \\$$    $$\n \\$$$$$$$   \\$$$$$$$ \\$$   \\$$ \\$$   \\$$ \\$$ \\$$   \\$$ _\\$$$$$$$\n                                                      |  \\__| $$\n                                                       \\$$    $$\n                                                        \\$$$$$$ \n  ______                         __                             \n /      \\                       |  \\                            \n|  $$$$$$\\ __    __   _______  _| $$_     ______   ______ ____  \n| $$___\\$$|  \\  |  \\ /       \\|   $$ \\   /      \\ |      \\    \\ \n \\$$    \\ | $$  | $$|  $$$$$$$ \\$$$$$$  |  $$$$$$\\| $$$$$$\\$$$$\\\n _\\$$$$$$\\| $$  | $$ \\$$    \\   | $$ __ | $$    $$| $$ | $$ | $$\n|  \\__| $$| $$__/ $$ _\\$$$$$$\\  | $$|  \\| $$$$$$$$| $$ | $$ | $$\n \\$$    $$ \\$$    $$|       $$   \\$$  $$ \\$$     \\| $$ | $$ | $$\n  \\$$$$$$  _\\$$$$$$$ \\$$$$$$$     \\$$$$   \\$$$$$$$ \\$$  \\$$  \\$$\n          |  \\__| $$                                            \n           \\$$    $$                                            \n            \\$$$$$$                                             \n";
 
 void initBankingSystem()
@@ -19,48 +15,87 @@ void initBankingSystem()
     printMenu();
 }
 
-char *getUserInput(size_t *length)
+static int ensureBufferCapacity(char **buffer, size_t *bufferSize, size_t requiredIndex)
 {
-    size_t buffSize = 1024;
-    *length = 0;
-
-    char *buffer = (char *)malloc(sizeof(char) * buffSize);
-
-    if (buffer == NULL)
+    if (requiredIndex + 1 < *bufferSize)
     {
-        return NULL;
+        return RESULT_OK;
     }
 
-    int ch;
+    size_t nextSize = *bufferSize;
+    while (requiredIndex + 1 >= nextSize)
+    {
+        if (nextSize > SIZE_MAX / 2)
+        {
+            return RESULT_ERROR;
+        }
+        nextSize *= 2;
+    }
 
+    char *tmp = realloc(*buffer, nextSize);
+    if (tmp == NULL)
+    {
+        return RESULT_ERROR;
+    }
+
+    *buffer = tmp;
+    *bufferSize = nextSize;
+    return RESULT_OK;
+}
+
+int appendToDynamicBuffer(char **buffer, size_t *bufferSize, size_t *bufferIndex, char c)
+{
+    if (ensureBufferCapacity(buffer, bufferSize, *bufferIndex) != RESULT_OK)
+    {
+        return RESULT_ERROR;
+    }
+
+    (*buffer)[(*bufferIndex)++] = c;
+    return RESULT_OK;
+}
+
+static char *allocateInputBuffer(size_t *bufferSize)
+{
+    *bufferSize = 1024;
+    return (char *)malloc(*bufferSize * sizeof(char));
+}
+
+static int readSanitizedInput(char **buffer, size_t *bufferSize, size_t *length, int *lastChar)
+{
+    int ch;
     while ((ch = getchar()) != '\n' && ch != EOF)
     {
-
-        if (*length + 1 >= buffSize)
-        {
-            if (buffSize > SIZE_MAX / 2)
-            {
-                free(buffer);
-                return NULL;
-            }
-
-            buffSize *= 2;
-            char *tmp = realloc(buffer, buffSize);
-            if (tmp == NULL)
-            {
-                free(buffer);
-                return NULL;
-            }
-
-            buffer = tmp;
-        }
-
         if ((char)ch == ';')
         {
             continue;
         }
 
-        buffer[(*length)++] = (char)ch;
+        if (appendToDynamicBuffer(buffer, bufferSize, length, (char)ch) != RESULT_OK)
+        {
+            return RESULT_ERROR;
+        }
+    }
+
+    *lastChar = ch;
+    return RESULT_OK;
+}
+
+char *getUserInput(size_t *length)
+{
+    size_t buffSize = 0;
+    *length = 0;
+
+    char *buffer = allocateInputBuffer(&buffSize);
+    if (buffer == NULL)
+    {
+        return NULL;
+    }
+
+    int ch = '\n';
+    if (readSanitizedInput(&buffer, &buffSize, length, &ch) != RESULT_OK)
+    {
+        free(buffer);
+        return NULL;
     }
 
     if (ch == EOF && *length == 0)
@@ -182,31 +217,8 @@ int semicolonLimitForSearchType(searchType type)
     case PESEL:
         return 5;
     default:
-        return -1;
+        return RESULT_ERROR;
     }
-}
-
-int appendToDynamicBuffer(char **buffer, size_t *bufferSize, size_t *bufferIndex, char c)
-{
-    if (*bufferIndex + 1 >= *bufferSize)
-    {
-        if (*bufferSize > ((size_t)-1) / 2)
-        {
-            return -1;
-        }
-
-        *bufferSize *= 2;
-        char *tmp = realloc(*buffer, *bufferSize);
-        if (tmp == NULL)
-        {
-            return -1;
-        }
-
-        *buffer = tmp;
-    }
-
-    (*buffer)[(*bufferIndex)++] = c;
-    return 0;
 }
 
 int extractSearchField(const char *line, int semicolonLimit, char **outField)
@@ -219,7 +231,7 @@ int extractSearchField(const char *line, int semicolonLimit, char **outField)
 
     if (buffer == NULL)
     {
-        return -2;
+        return RESULT_ERROR;
     }
 
     while (semicolonCount < semicolonLimit && line[index] != '\0')
@@ -229,7 +241,7 @@ int extractSearchField(const char *line, int semicolonLimit, char **outField)
             if (appendToDynamicBuffer(&buffer, &bufferSize, &bufferIndex, line[index]) != 0)
             {
                 free(buffer);
-                return -2;
+                return RESULT_ERROR;
             }
         }
 
@@ -265,13 +277,13 @@ int doesLineMatchSearch(const char *line, const char *value, int semicolonLimit)
 
 int findUser(const char *s, searchType type)
 {
-    if (s == NULL) return -2;
+    if (s == NULL) return RESULT_ERROR;
 
     int semicolonLimit = semicolonLimitForSearchType(type);
-    if (semicolonLimit < 0) return -2;
+    if (semicolonLimit < RESULT_OK) return RESULT_ERROR;
 
     FILE *fptr = fopen("db.txt", "r");
-    if (fptr == NULL) return -2;
+    if (fptr == NULL) return RESULT_ERROR;
 
     char *line = NULL;
     size_t len = 0;
@@ -280,11 +292,11 @@ int findUser(const char *s, searchType type)
     while (getline(&line, &len, fptr) != -1)
     {
         int lineMatchResult = doesLineMatchSearch(line, s, semicolonLimit);
-        if (lineMatchResult == -2)
+        if (lineMatchResult == RESULT_ERROR)
         {
             free(line);
             fclose(fptr);
-            return -2;
+            return RESULT_ERROR;
         }
 
         if (lineMatchResult == 1)
@@ -299,7 +311,7 @@ int findUser(const char *s, searchType type)
 
     free(line);
     fclose(fptr);
-    return -1;
+    return RESULT_NOT_FOUND;
 }
 
 char *generateId()
@@ -319,9 +331,9 @@ char *generateId()
         id[4] = '\0';
 
         int r = findUser(id, ID);
-        if (r == -1) return id;
+        if (r == RESULT_NOT_FOUND) return id;
     
-        if (r == -2)
+        if (r == RESULT_ERROR)
         {
             free(id);
             return NULL;
@@ -362,27 +374,27 @@ int splitUserLine(char *line, char **fields)
 
 int calculateNextBalance(const char *balanceField, long delta, bool checkFunds, long *nextBalance)
 {
-    if (balanceField == NULL || nextBalance == NULL) return -2;
+    if (balanceField == NULL || nextBalance == NULL) return RESULT_ERROR;
 
-    if (balanceField[0] == '\0') return -2;
+    if (balanceField[0] == '\0') return RESULT_ERROR;
 
     for (size_t i = 0; balanceField[i] != '\0'; i++)
     {
-        if (!isdigit((unsigned char)balanceField[i])) return -2;
+        if (!isdigit((unsigned char)balanceField[i])) return RESULT_ERROR;
     }
 
     char *endptr = NULL;
     errno = 0;
     long currentBalance = strtol(balanceField, &endptr, 10);
-    if (endptr == balanceField || errno != 0 || *endptr != '\0') return -2;
+    if (endptr == balanceField || errno != 0 || *endptr != '\0') return RESULT_ERROR;
     
 
-    if (delta > 0 && currentBalance > LONG_MAX - delta) return -2;
+    if (delta > 0 && currentBalance > LONG_MAX - delta) return RESULT_ERROR;
 
-    if (delta < 0 && currentBalance < LONG_MIN - delta) return -2;
+    if (delta < 0 && currentBalance < LONG_MIN - delta) return RESULT_ERROR;
 
     *nextBalance = currentBalance + delta;
-    if (checkFunds && *nextBalance < 0) return -3;
+    if (checkFunds && *nextBalance < 0) return RESULT_CONFLICT;
 
     return 0;
 }
@@ -403,7 +415,7 @@ int processBalanceLine(FILE *dst, const char *line, const char *userId, long del
     char *copy = strdup(line);
     if (copy == NULL)
     {
-        return -2;
+        return RESULT_ERROR;
     }
 
     char *fields[6] = {0};
@@ -433,7 +445,7 @@ int processBalanceLine(FILE *dst, const char *line, const char *userId, long del
 
 int updateUserBalance(const char *userId, long delta, bool checkFunds)
 {
-    if (userId == NULL) return -2;
+    if (userId == NULL) return RESULT_ERROR;
 
     FILE *src = fopen("db.txt", "r");
     FILE *dst = fopen("db.tmp", "w");
@@ -442,7 +454,7 @@ int updateUserBalance(const char *userId, long delta, bool checkFunds)
     {
         if (src != NULL) fclose(src);
         if (dst != NULL) fclose(dst);
-        return -2;
+        return RESULT_ERROR;
     }
 
     char *line = NULL;
@@ -470,13 +482,13 @@ int updateUserBalance(const char *userId, long delta, bool checkFunds)
     if (!found)
     {
         remove("db.tmp");
-        return -1;
+        return RESULT_NOT_FOUND;
     }
 
     if (rename("db.tmp", "db.txt") != 0)
     {
         remove("db.tmp");
-        return -2;
+        return RESULT_ERROR;
     }
 
     return 0;
@@ -486,7 +498,7 @@ int makeDeposit(const char *userId, long amount)
 {
     if (amount <= 0)
     {
-        return -2;
+        return RESULT_ERROR;
     }
 
     return updateUserBalance(userId, amount, false);
@@ -496,7 +508,7 @@ int withdrawal(const char *userId, long amount)
 {
     if (amount <= 0)
     {
-        return -2;
+        return RESULT_ERROR;
     }
 
     return updateUserBalance(userId, -amount, true);
@@ -506,7 +518,7 @@ int transfer(const char *fromUserId, const char *toUserId, long amount)
 {
     if (amount <= 0 || fromUserId == NULL || toUserId == NULL)
     {
-        return -2;
+        return RESULT_ERROR;
     }
 
     if (strcmp(fromUserId, toUserId) == 0)
@@ -526,7 +538,7 @@ int transfer(const char *fromUserId, const char *toUserId, long amount)
         int rollback = makeDeposit(fromUserId, amount);
         if (rollback != 0)
         {
-            return -2;
+            return RESULT_ERROR;
         }
         return d;
     }
@@ -537,9 +549,9 @@ int transfer(const char *fromUserId, const char *toUserId, long amount)
 int makeOperation(operationType operationType, const char *firstUserId, const char *secondUserId, long amount)
 {
     if (firstUserId == NULL)
-        return -1;
+        return RESULT_ERROR;
     if (operationType == TRANSFER && secondUserId == NULL)
-        return -1;
+        return RESULT_ERROR;
 
     int res = 0;
 
@@ -561,12 +573,12 @@ int makeOperation(operationType operationType, const char *firstUserId, const ch
 
 int takeOutInsurance(const char *userId, const char *registrationNo, long amount)
 {
-    if (!userId || !registrationNo || amount <= 0) return -2;
+    if (!userId || !registrationNo || amount <= 0) return RESULT_ERROR;
 
-    if (findUser(userId, ID) < 0) return -1;
+    if (findUser(userId, ID) < RESULT_OK) return RESULT_NOT_FOUND;
 
     FILE *fptr = fopen("ins.txt", "a+");
-    if (fptr == NULL) return -2;
+    if (fptr == NULL) return RESULT_ERROR;
 
 
     rewind(fptr);
@@ -580,7 +592,7 @@ int takeOutInsurance(const char *userId, const char *registrationNo, long amount
         {
             free(line);
             fclose(fptr);
-            return -2;
+            return RESULT_ERROR;
         }
 
         char *token = strtok(copy, ";");
@@ -591,7 +603,7 @@ int takeOutInsurance(const char *userId, const char *registrationNo, long amount
             free(copy);
             free(line);
             fclose(fptr);
-            return -3;
+            return RESULT_CONFLICT;
         }
 
         free(copy);
@@ -602,7 +614,7 @@ int takeOutInsurance(const char *userId, const char *registrationNo, long amount
     if (fprintf(fptr, "%s;%s;%ld\n", userId, registrationNo, amount) < 0)
     {
         fclose(fptr);
-        return -2;
+        return RESULT_ERROR;
     }
 
     fclose(fptr);
@@ -990,17 +1002,17 @@ void insuranceSubmenu()
 
             int res = takeOutInsurance(userId, registrationNo, amount);
 
-            if (!registrationNo || res < 0)
+            if (!registrationNo || res < RESULT_OK)
             {
                 if (!registrationNo)
                 {
                     printf("Invalid registration number format.\n");
                 }
-                else if (res == -1)
+                else if (res == RESULT_NOT_FOUND)
                 {
                     printf("User ID not found in database.\n");
                 }
-                else if (res == -3)
+                else if (res == RESULT_CONFLICT)
                 {
                     printf("Insurance already exists for this registration number.\n");
                 }
@@ -1111,7 +1123,7 @@ void operationsSubmenu()
         else if (readConfirmation("Do you want to proceed? (Y/n): ", 'n') == 'y')
         {
             int res = makeOperation(opt->type, userIdValidated, secondUserIdValidated, amount);
-            if (res < 0)
+            if (res < RESULT_OK)
             {
                 printf("Operation failed\n");
                 free(userIdValidated);
@@ -1168,7 +1180,7 @@ void storeNewUser()
     }
 
     int peselLine = findUser(userPesel, PESEL);
-    if (peselLine == -2)
+    if (peselLine == RESULT_ERROR)
     {
         printf("Could not validate PESEL due to a database error.\n");
         free(userId);
