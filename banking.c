@@ -167,127 +167,137 @@ char *getRegistrationNo(size_t *length)
     return input;
 }
 
-int findUser(const char *s, searchType type)
+int semicolonLimitForSearchType(searchType type)
 {
-    FILE *fptr;
-
-    if (s == NULL)
-    {
-        return -2;
-    }
-
-    fptr = fopen("db.txt", "r");
-    if (fptr == NULL)
-    {
-        return -2;
-    }
-
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t read;
-    int lineNum = 0;
-    int maxSemiNo = 0;
-
     switch (type)
     {
     case ID:
-        maxSemiNo = 1;
-        break;
+        return 1;
     case NAME:
-        maxSemiNo = 2;
-        break;
+        return 2;
     case SURNAME:
-        maxSemiNo = 3;
-        break;
+        return 3;
     case ADDRESS:
-        maxSemiNo = 4;
-        break;
+        return 4;
     case PESEL:
-        maxSemiNo = 5;
-        break;
+        return 5;
     default:
-        fclose(fptr);
+        return -1;
+    }
+}
+
+int appendToDynamicBuffer(char **buffer, size_t *bufferSize, size_t *bufferIndex, char c)
+{
+    if (*bufferIndex + 1 >= *bufferSize)
+    {
+        if (*bufferSize > ((size_t)-1) / 2)
+        {
+            return -1;
+        }
+
+        *bufferSize *= 2;
+        char *tmp = realloc(*buffer, *bufferSize);
+        if (tmp == NULL)
+        {
+            return -1;
+        }
+
+        *buffer = tmp;
+    }
+
+    (*buffer)[(*bufferIndex)++] = c;
+    return 0;
+}
+
+int extractSearchField(const char *line, int semicolonLimit, char **outField)
+{
+    size_t index = 0;
+    int semicolonCount = 0;
+    size_t bufferSize = 256;
+    size_t bufferIndex = 0;
+    char *buffer = malloc(bufferSize * sizeof(char));
+
+    if (buffer == NULL)
+    {
         return -2;
     }
 
-    while ((read = getline(&line, &len, fptr)) != -1)
+    while (semicolonCount < semicolonLimit && line[index] != '\0')
     {
-        size_t index = 0;
-        int howManySemi = 0;
-        size_t buffSize = 256;
-        size_t buffIndex = 0;
-        char *buff = malloc(buffSize * sizeof(char));
+        if (semicolonCount == semicolonLimit - 1 && line[index] != ';')
+        {
+            if (appendToDynamicBuffer(&buffer, &bufferSize, &bufferIndex, line[index]) != 0)
+            {
+                free(buffer);
+                return -2;
+            }
+        }
 
-        if (buff == NULL)
+        if (line[index] == ';') semicolonCount++;
+        index++;
+    }
+
+    if (semicolonCount < semicolonLimit)
+    {
+        free(buffer);
+        return 0;
+    }
+
+    buffer[bufferIndex] = '\0';
+    *outField = buffer;
+    return 1;
+}
+
+int doesLineMatchSearch(const char *line, const char *value, int semicolonLimit)
+{
+    char *field = NULL;
+    int extractionResult = extractSearchField(line, semicolonLimit, &field);
+
+    if (extractionResult <= 0)
+    {
+        return extractionResult;
+    }
+
+    int isMatch = strcmp(value, field) == 0;
+    free(field);
+    return isMatch ? 1 : 0;
+}
+
+int findUser(const char *s, searchType type)
+{
+    if (s == NULL) return -2;
+
+    int semicolonLimit = semicolonLimitForSearchType(type);
+    if (semicolonLimit < 0) return -2;
+
+    FILE *fptr = fopen("db.txt", "r");
+    if (fptr == NULL) return -2;
+
+    char *line = NULL;
+    size_t len = 0;
+    int lineNum = 0;
+
+    while (getline(&line, &len, fptr) != -1)
+    {
+        int lineMatchResult = doesLineMatchSearch(line, s, semicolonLimit);
+        if (lineMatchResult == -2)
         {
             free(line);
             fclose(fptr);
             return -2;
         }
 
-        while (howManySemi < maxSemiNo && line[index] != '\0')
+        if (lineMatchResult == 1)
         {
-
-            if (howManySemi == maxSemiNo - 1 && line[index] != ';')
-            {
-
-                if (buffIndex + 1 >= buffSize)
-                {
-                    if (buffSize > ((size_t)-1) / 2)
-                    {
-                        free(buff);
-                        free(line);
-                        fclose(fptr);
-                        return -2;
-                    }
-                    buffSize *= 2;
-                    char *tmp = realloc(buff, buffSize);
-                    if (tmp == NULL)
-                    {
-                        free(buff);
-                        free(line);
-                        fclose(fptr);
-                        return -2;
-                    }
-
-                    buff = tmp;
-                }
-                buff[buffIndex++] = line[index];
-            }
-
-            if (line[index] == ';')
-            {
-                howManySemi++;
-            }
-            index++;
-        }
-
-        if (howManySemi < maxSemiNo)
-        {
-            free(buff);
-            lineNum++;
-            continue;
-        }
-
-        buff[buffIndex] = '\0';
-
-        if (strcmp(s, buff) == 0)
-        {
-            free(buff);
             free(line);
             fclose(fptr);
             return lineNum;
         }
 
-        free(buff);
         lineNum++;
     }
 
-    if (line)
-    {
-        free(line);
-    }
-
+    free(line);
     fclose(fptr);
     return -1;
 }
@@ -298,10 +308,7 @@ char *generateId()
     const int maxAttempts = 10000;
 
     char *id = malloc(5);
-    if (id == NULL)
-    {
-        return NULL;
-    }
+    if (id == NULL) return NULL;
 
     for (int attempt = 0; attempt < maxAttempts; attempt++)
     {
@@ -312,10 +319,8 @@ char *generateId()
         id[4] = '\0';
 
         int r = findUser(id, ID);
-        if (r == -1)
-        {
-            return id;
-        }
+        if (r == -1) return id;
+    
         if (r == -2)
         {
             free(id);
@@ -357,47 +362,27 @@ int splitUserLine(char *line, char **fields)
 
 int calculateNextBalance(const char *balanceField, long delta, bool checkFunds, long *nextBalance)
 {
-    if (balanceField == NULL || nextBalance == NULL)
-    {
-        return -2;
-    }
+    if (balanceField == NULL || nextBalance == NULL) return -2;
 
-    if (balanceField[0] == '\0')
-    {
-        return -2;
-    }
+    if (balanceField[0] == '\0') return -2;
 
     for (size_t i = 0; balanceField[i] != '\0'; i++)
     {
-        if (!isdigit((unsigned char)balanceField[i]))
-        {
-            return -2;
-        }
+        if (!isdigit((unsigned char)balanceField[i])) return -2;
     }
 
     char *endptr = NULL;
     errno = 0;
     long currentBalance = strtol(balanceField, &endptr, 10);
-    if (endptr == balanceField || errno != 0 || *endptr != '\0')
-    {
-        return -2;
-    }
+    if (endptr == balanceField || errno != 0 || *endptr != '\0') return -2;
+    
 
-    if (delta > 0 && currentBalance > LONG_MAX - delta)
-    {
-        return -2;
-    }
+    if (delta > 0 && currentBalance > LONG_MAX - delta) return -2;
 
-    if (delta < 0 && currentBalance < LONG_MIN - delta)
-    {
-        return -2;
-    }
+    if (delta < 0 && currentBalance < LONG_MIN - delta) return -2;
 
     *nextBalance = currentBalance + delta;
-    if (checkFunds && *nextBalance < 0)
-    {
-        return -3;
-    }
+    if (checkFunds && *nextBalance < 0) return -3;
 
     return 0;
 }
@@ -448,24 +433,15 @@ int processBalanceLine(FILE *dst, const char *line, const char *userId, long del
 
 int updateUserBalance(const char *userId, long delta, bool checkFunds)
 {
-    if (userId == NULL)
-    {
-        return -2;
-    }
+    if (userId == NULL) return -2;
 
     FILE *src = fopen("db.txt", "r");
     FILE *dst = fopen("db.tmp", "w");
 
     if (src == NULL || dst == NULL)
     {
-        if (src != NULL)
-        {
-            fclose(src);
-        }
-        if (dst != NULL)
-        {
-            fclose(dst);
-        }
+        if (src != NULL) fclose(src);
+        if (dst != NULL) fclose(dst);
         return -2;
     }
 
@@ -585,21 +561,13 @@ int makeOperation(operationType operationType, const char *firstUserId, const ch
 
 int takeOutInsurance(const char *userId, const char *registrationNo, long amount)
 {
-    if (!userId || !registrationNo || amount <= 0)
-    {
-        return -2;
-    }
+    if (!userId || !registrationNo || amount <= 0) return -2;
 
-    if (findUser(userId, ID) < 0)
-    {
-        return -1;
-    }
+    if (findUser(userId, ID) < 0) return -1;
 
     FILE *fptr = fopen("ins.txt", "a+");
-    if (fptr == NULL)
-    {
-        return -2;
-    }
+    if (fptr == NULL) return -2;
+
 
     rewind(fptr);
     char *line = NULL;
@@ -669,10 +637,7 @@ void printUserInsurances(const char *userId)
     while (getline(&line, &len, fptr) != -1)
     {
         char *copy = strdup(line);
-        if (copy == NULL)
-        {
-            continue;
-        }
+        if (copy == NULL) continue;
 
         char *insuranceUserId = strtok(copy, ";");
         char *registrationNo = strtok(NULL, ";");
@@ -702,16 +667,10 @@ void printUserInsurances(const char *userId)
 
 void printUserFormatted(const char *line)
 {
-    if (line == NULL)
-    {
-        return;
-    }
+    if (line == NULL) return;
 
     char *copy = strdup(line);
-    if (copy == NULL)
-    {
-        return;
-    }
+    if (copy == NULL) return;
 
     char *fields[6] = {0};
     int fieldCount = splitUserLine(copy, fields);
@@ -742,10 +701,7 @@ void listUser(int lineSearchNum)
     FILE *fptr;
     fptr = fopen("db.txt", "r");
 
-    if (fptr == NULL)
-    {
-        return;
-    }
+    if (fptr == NULL) return;
 
     char *line = NULL;
     size_t len = 0;
@@ -773,10 +729,7 @@ void listAllUsers()
     FILE *fptr;
     fptr = fopen("db.txt", "r");
 
-    if (fptr == NULL)
-    {
-        return;
-    }
+    if (fptr == NULL) return;
 
     char *line = NULL;
     size_t len = 0;
@@ -1020,10 +973,7 @@ void insuranceSubmenu()
 
         int choice = readIntInRange("Choose: ", 0, 1);
 
-        if (choice == 0)
-        {
-            return;
-        }
+        if (choice == 0) return;
 
         if (choice == 1)
         {
@@ -1182,10 +1132,7 @@ void storeNewUser()
     FILE *fptr;
 
     fptr = fopen("db.txt", "a+");
-    if (fptr == NULL)
-    {
-        return;
-    }
+    if (fptr == NULL) return;
 
     clearScreen();
 
