@@ -113,79 +113,110 @@ static char *readValidatedID(void)
     }
 }
 
+static void printInsuranceMenu(void)
+{
+    clearScreen();
+    printf("=== Insurances ===\n");
+    printf("1. Take out insurance\n");
+    printf("0. Back\n\n");
+}
+
+static void handleInsuranceResult(const char *registrationNo, int res)
+{
+    if (!registrationNo)
+    {
+        printf("Invalid registration number format.\n");
+    }
+    else if (res == RESULT_NOT_FOUND)
+    {
+        printf("User ID not found in database.\n");
+    }
+    else if (res == RESULT_CONFLICT)
+    {
+        printf("Insurance already exists for this registration number.\n");
+    }
+    else
+    {
+        printf("Failed to take out insurance. Please try again.\n");
+    }
+}
+
+static void processTakeOutInsurance(void)
+{
+    char *userId = readValidatedID();
+    if (!userId)
+        return;
+
+    size_t length = 0;
+    char *registrationNo = getRegistrationNo(&length);
+    long amount = readLongInRange("Type in the amount of the yearly payment: ", 1, LONG_MAX);
+
+    int res = takeOutInsurance(userId, registrationNo, amount);
+
+    if (!registrationNo || res < RESULT_OK)
+    {
+        handleInsuranceResult(registrationNo, res);
+        free(userId);
+        free(registrationNo);
+        waitForEnter();
+        return;
+    }
+
+    printf("Insurance has been registered for user: %s\n", userId);
+    free(userId);
+    free(registrationNo);
+    waitForEnter();
+}
+
 static void insuranceSubmenu(void)
 {
     while (true)
     {
-        clearScreen();
-        printf("=== Insurances ===\n");
-        printf("1. Take out insurance\n");
-        printf("0. Back\n\n");
+        printInsuranceMenu();
 
         int choice = readIntInRange("Choose: ", 0, 1);
 
-        if (choice == 0) return;
+        if (choice == 0)
+            return;
 
         if (choice == 1)
-        {
-            char *userId = readValidatedID();
-            if (!userId)
-            {
-                continue;
-            }
-
-            size_t length = 0;
-            char *registrationNo = NULL;
-            registrationNo = getRegistrationNo(&length);
-            long amount = readLongInRange("Type in the amount of the yearly payment: ", 1, LONG_MAX);
-
-            int res = takeOutInsurance(userId, registrationNo, amount);
-
-            if (!registrationNo || res < RESULT_OK)
-            {
-                if (!registrationNo)
-                {
-                    printf("Invalid registration number format.\n");
-                }
-                else if (res == RESULT_NOT_FOUND)
-                {
-                    printf("User ID not found in database.\n");
-                }
-                else if (res == RESULT_CONFLICT)
-                {
-                    printf("Insurance already exists for this registration number.\n");
-                }
-                else
-                {
-                    printf("Failed to take out insurance. Please try again.\n");
-                }
-
-                free(userId);
-                free(registrationNo);
-                waitForEnter();
-                continue;
-            }
-
-            printf("Insurance has been registered for user: %s\n", userId);
-            free(userId);
-            free(registrationNo);
-            waitForEnter();
-        }
+            processTakeOutInsurance();
     }
+}
+
+static void printListUsersMenu(void)
+{
+    clearScreen();
+    printf("=== List Users By ===\n");
+    for (int i = 0; i < searchOptionsCount(); i++)
+    {
+        printf("%d. %s\n", i + 1, SEARCH_OPTIONS[i].label);
+    }
+    printf("%d. All Users\n", searchOptionsCount() + 1);
+    printf("0. Back\n\n");
+}
+
+static void listUsersByOption(const SearchOption *opt)
+{
+    char *value = readValidatedValue(opt);
+    if (!value)
+        return;
+
+    int line = findUser(value, opt->type);
+    if (line >= 0)
+        listUser(line);
+    else
+        printf("User not found\n");
+
+    free(value);
+    waitForEnter();
 }
 
 static void listUserSubmenu(void)
 {
     while (true)
     {
-        clearScreen();
-        printf("=== List Users By ===\n");
-        for (int i = 0; i < searchOptionsCount(); i++)
-        {
-            printf("%d. %s\n", i + 1, SEARCH_OPTIONS[i].label);
-        }
-        printf("%d. All Users\n", searchOptionsCount() + 1);
-        printf("0. Back\n\n");
+        printListUsersMenu();
 
         int choice = readIntInRange("Choose: ", 0, searchOptionsCount() + 1);
 
@@ -200,32 +231,84 @@ static void listUserSubmenu(void)
         }
 
         const SearchOption *opt = &SEARCH_OPTIONS[choice - 1];
-        char *value = readValidatedValue(opt);
-        if (!value)
-            continue;
-
-        int line = findUser(value, opt->type);
-        if (line >= 0)
-            listUser(line);
-        else
-            printf("User not found\n");
-
-        free(value);
-        waitForEnter();
+        listUsersByOption(opt);
     }
+}
+
+static void printOperationsMenu(void)
+{
+    clearScreen();
+    printf("=== Operations ===\n");
+    for (int i = 0; i < operationOptionsCount(); i++)
+    {
+        printf("%d. %s\n", i + 1, OPERATION_OPTIONS[i].label);
+    }
+    printf("0. Back\n\n");
+}
+
+static bool readOperationParticipants(const OperationOption *opt, char **userId, char **secondUserId)
+{
+    *userId = readValidatedValueOperation(opt);
+    if (!*userId)
+        return false;
+
+    if (opt->type != TRANSFER)
+        return true;
+
+    *secondUserId = readValidatedValueOperation(opt);
+    if (!*secondUserId)
+    {
+        printf("Second user accountNumber is required for transfer.\n");
+        free(*userId);
+        *userId = NULL;
+        waitForEnter();
+        return false;
+    }
+
+    return true;
+}
+
+static void freeOperationParticipants(char *userId, char *secondUserId)
+{
+    free(secondUserId);
+    free(userId);
+}
+
+static void processOperation(const OperationOption *opt)
+{
+    char *userIdValidated = NULL;
+    char *secondUserIdValidated = NULL;
+
+    if (!readOperationParticipants(opt, &userIdValidated, &secondUserIdValidated))
+        return;
+
+    long amount = readLongInRange("Enter amount: ", 1, LONG_MAX);
+
+    if (amount == 0L)
+    {
+        printf("Line parsing went wrong, Try again\n");
+    }
+    else if (readConfirmation("Do you want to proceed? (Y/n): ", 'n') == 'y')
+    {
+        int res = makeOperation(opt->type, userIdValidated, secondUserIdValidated, amount);
+        if (res < RESULT_OK)
+        {
+            printf("Operation failed\n");
+            freeOperationParticipants(userIdValidated, secondUserIdValidated);
+            waitForEnter();
+            return;
+        }
+    }
+
+    freeOperationParticipants(userIdValidated, secondUserIdValidated);
+    waitForEnter();
 }
 
 static void operationsSubmenu(void)
 {
     while (true)
     {
-        clearScreen();
-        printf("=== Operations ===\n");
-        for (int i = 0; i < operationOptionsCount(); i++)
-        {
-            printf("%d. %s\n", i + 1, OPERATION_OPTIONS[i].label);
-        }
-        printf("0. Back\n\n");
+        printOperationsMenu();
 
         int choice = readIntInRange("Choose: ", 0, operationOptionsCount());
 
@@ -233,48 +316,7 @@ static void operationsSubmenu(void)
             return;
 
         const OperationOption *opt = &OPERATION_OPTIONS[choice - 1];
-
-        char *userIdValidated = NULL;
-        char *secondUserIdValidated = NULL;
-
-        userIdValidated = readValidatedValueOperation(opt);
-        if (!userIdValidated)
-            continue;
-
-        if (opt->type == TRANSFER)
-        {
-            secondUserIdValidated = readValidatedValueOperation(opt);
-            if (!secondUserIdValidated)
-            {
-                printf("Second user accountNumber is required for transfer.\n");
-                free(userIdValidated);
-                waitForEnter();
-                continue;
-            }
-        }
-
-        long amount = readLongInRange("Enter amount: ", 1, LONG_MAX);
-
-        if (amount == 0L)
-        {
-            printf("Line parsing went wrong, Try again\n");
-        }
-        else if (readConfirmation("Do you want to proceed? (Y/n): ", 'n') == 'y')
-        {
-            int res = makeOperation(opt->type, userIdValidated, secondUserIdValidated, amount);
-            if (res < RESULT_OK)
-            {
-                printf("Operation failed\n");
-                free(userIdValidated);
-                free(secondUserIdValidated);
-                waitForEnter();
-                continue;
-            }
-        }
-
-        free(secondUserIdValidated);
-        free(userIdValidated);
-        waitForEnter();
+        processOperation(opt);
     }
 }
 
