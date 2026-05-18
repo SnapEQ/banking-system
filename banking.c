@@ -15,7 +15,7 @@ void initBankingSystem()
     printMenu();
 }
 
-static int ensureBufferCapacity(char **buffer, size_t *bufferSize, size_t requiredIndex)
+int ensureBufferCapacity(char **buffer, size_t *bufferSize, size_t requiredIndex)
 {
     if (requiredIndex + 1 < *bufferSize)
     {
@@ -54,13 +54,13 @@ int appendToDynamicBuffer(char **buffer, size_t *bufferSize, size_t *bufferIndex
     return RESULT_OK;
 }
 
-static char *allocateInputBuffer(size_t *bufferSize)
+char *allocateInputBuffer(size_t *bufferSize)
 {
     *bufferSize = 1024;
     return (char *)malloc(*bufferSize * sizeof(char));
 }
 
-static int readSanitizedInput(char **buffer, size_t *bufferSize, size_t *length, int *lastChar)
+int readSanitizedInput(char **buffer, size_t *bufferSize, size_t *length, int *lastChar)
 {
     int ch;
     while ((ch = getchar()) != '\n' && ch != EOF)
@@ -1139,6 +1139,15 @@ void operationsSubmenu()
     }
 }
 
+void freeStoreNewUserMemory(char *userId, char *userName, char *userSurname, char *userAddress, char *userPesel, FILE *fptr) {
+    free(userId);
+    free(userName);
+    free(userSurname);
+    free(userAddress);
+    free(userPesel);
+    fclose(fptr);
+}
+
 void storeNewUser()
 {
     FILE *fptr;
@@ -1158,62 +1167,36 @@ void storeNewUser()
 
     if (userId == NULL || userName == NULL || userSurname == NULL || userAddress == NULL || userPesel == NULL)
     {
-        free(userId);
-        free(userName);
-        free(userSurname);
-        free(userAddress);
-        free(userPesel);
-        fclose(fptr);
+        freeStoreNewUserMemory(userId, userName, userSurname, userAddress, userPesel, fptr);
         return;
     }
 
     if (!validatePesel(userPesel))
     {
         printf("Wrong pesel format");
-        free(userId);
-        free(userName);
-        free(userSurname);
-        free(userAddress);
-        free(userPesel);
-        fclose(fptr);
+        freeStoreNewUserMemory(userId, userName, userSurname, userAddress, userPesel, fptr);        
         return;
     }
 
     int peselLine = findUser(userPesel, PESEL);
     if (peselLine == RESULT_ERROR)
     {
-        printf("Could not validate PESEL due to a database error.\n");
-        free(userId);
-        free(userName);
-        free(userSurname);
-        free(userAddress);
-        free(userPesel);
-        fclose(fptr);
+        printf("Could not validate PESEL due to a database error.\n"); 
+        freeStoreNewUserMemory(userId, userName, userSurname, userAddress, userPesel, fptr);
         return;
     }
 
     if (peselLine >= 0)
     {
         printf("There is a person with such pesel existing in the database! \nThe user was not registered");
-        free(userId);
-        free(userName);
-        free(userSurname);
-        free(userAddress);
-        free(userPesel);
-        fclose(fptr);
-
+        freeStoreNewUserMemory(userId, userName, userSurname, userAddress, userPesel, fptr);
         return;
     }
 
     printf("Here is your bank account number: %s", userId);
     fprintf(fptr, "%s;%s;%s;%s;%s;%s\n", userId, userName, userSurname, userAddress, userPesel, "0");
 
-    free(userId);
-    free(userName);
-    free(userSurname);
-    free(userAddress);
-    free(userPesel);
-    fclose(fptr);
+    freeStoreNewUserMemory(userId, userName, userSurname, userAddress, userPesel, fptr);
 }
 
 void printMenu()
