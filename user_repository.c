@@ -91,15 +91,18 @@ static int calculateNextBalance(const char *balanceField, long delta, bool check
 
     if (balanceField[0] == '\0') return RESULT_ERROR;
 
-    for (size_t i = 0; balanceField[i] != '\0'; i++)
-    {
-        if (!isdigit((unsigned char)balanceField[i])) return RESULT_ERROR;
-    }
-
     char *endptr = NULL;
     errno = 0;
     long currentBalance = strtol(balanceField, &endptr, 10);
-    if (endptr == balanceField || errno != 0 || *endptr != '\0') return RESULT_ERROR;
+    if (endptr == balanceField || errno != 0) return RESULT_ERROR;
+
+    while (*endptr != '\0')
+    {
+        if (!isspace((unsigned char)*endptr)) return RESULT_ERROR;
+        endptr++;
+    }
+
+    if (currentBalance < 0) return RESULT_ERROR;
 
     if (delta > 0 && currentBalance > LONG_MAX - delta) return RESULT_ERROR;
 
