@@ -1,10 +1,8 @@
 #include "account_service.h"
 
-#include <ctype.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "input.h"
 #include "ui_render.h"
@@ -99,11 +97,17 @@ static char *generateId(void)
     return NULL;
 }
 
+static int userExists(const char *userId);
+static int canMakeDeposit(const char *userId, long amount);
+static int canWithdraw(const char *userId, long amount);
+static int canTransfer(const char *fromUserId, const char *toUserId, long amount);
+
 int makeDeposit(const char *userId, long amount)
 {
-    if (amount <= 0)
+    int checkResult = canMakeDeposit(userId, amount);
+    if (checkResult != RESULT_OK)
     {
-        return RESULT_ERROR;
+        return checkResult;
     }
 
     return updateUserBalance(userId, amount, false);
@@ -111,9 +115,10 @@ int makeDeposit(const char *userId, long amount)
 
 int withdrawal(const char *userId, long amount)
 {
-    if (amount <= 0)
+    int checkResult = canWithdraw(userId, amount);
+    if (checkResult != RESULT_OK)
     {
-        return RESULT_ERROR;
+        return checkResult;
     }
 
     return updateUserBalance(userId, -amount, true);
@@ -121,26 +126,22 @@ int withdrawal(const char *userId, long amount)
 
 int transfer(const char *fromUserId, const char *toUserId, long amount)
 {
-    if (amount <= 0 || fromUserId == NULL || toUserId == NULL)
+    int checkResult = canTransfer(fromUserId, toUserId, amount);
+    if (checkResult != RESULT_OK)
     {
-        return RESULT_ERROR;
+        return checkResult;
     }
 
-    if (strcmp(fromUserId, toUserId) == 0)
-    {
-        return RESULT_OK;
-    }
-
-    int w = withdrawal(fromUserId, amount);
+    int w = updateUserBalance(fromUserId, -amount, true);
     if (w != RESULT_OK)
     {
         return w;
     }
 
-    int d = makeDeposit(toUserId, amount);
+    int d = updateUserBalance(toUserId, amount, false);
     if (d != RESULT_OK)
     {
-        int rollback = makeDeposit(fromUserId, amount);
+        int rollback = updateUserBalance(fromUserId, amount, false);
         if (rollback != RESULT_OK)
         {
             return RESULT_ERROR;
@@ -149,6 +150,75 @@ int transfer(const char *fromUserId, const char *toUserId, long amount)
     }
 
     return RESULT_OK;
+}
+
+static int userExists(const char *userId)
+{
+    int line = findUser(userId, ID);
+    if (line >= RESULT_OK)
+    {
+        return RESULT_OK;
+    }
+
+    return line == RESULT_NOT_FOUND ? RESULT_NOT_FOUND : RESULT_ERROR;
+}
+
+static int canMakeDeposit(const char *userId, long amount)
+{
+    if (userId == NULL || amount <= 0)
+    {
+        return RESULT_ERROR;
+    }
+
+    return userExists(userId);
+}
+
+static int canWithdraw(const char *userId, long amount)
+{
+    if (userId == NULL || amount <= 0)
+    {
+        return RESULT_ERROR;
+    }
+
+    long balance = 0;
+    int balanceResult = getUserBalance(userId, &balance);
+    if (balanceResult != RESULT_OK)
+    {
+        return balanceResult;
+    }
+
+    return balance >= amount ? RESULT_OK : RESULT_CONFLICT;
+}
+
+static int canTransfer(const char *fromUserId, const char *toUserId, long amount)
+{
+    if (fromUserId == NULL || toUserId == NULL || amount <= 0)
+    {
+        return RESULT_ERROR;
+    }
+
+    int sourceResult = canWithdraw(fromUserId, amount);
+    if (sourceResult != RESULT_OK)
+    {
+        return sourceResult;
+    }
+
+    return userExists(toUserId);
+}
+
+int canMakeOperation(operationType operationType, const char *firstUserId, const char *secondUserId, long amount)
+{
+    switch (operationType)
+    {
+    case DEPOSIT:
+        return canMakeDeposit(firstUserId, amount);
+    case WITHDRAWAL:
+        return canWithdraw(firstUserId, amount);
+    case TRANSFER:
+        return canTransfer(firstUserId, secondUserId, amount);
+    }
+
+    return RESULT_ERROR;
 }
 
 int makeOperation(operationType operationType, const char *firstUserId, const char *secondUserId, long amount)

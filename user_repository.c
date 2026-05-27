@@ -85,9 +85,9 @@ static int doesLineMatchSearch(const char *line, const char *value, int semicolo
     return isMatch ? 1 : RESULT_OK;
 }
 
-static int calculateNextBalance(const char *balanceField, long delta, bool checkFunds, long *nextBalance)
+static int parseBalanceField(const char *balanceField, long *balance)
 {
-    if (balanceField == NULL || nextBalance == NULL) return RESULT_ERROR;
+    if (balanceField == NULL || balance == NULL) return RESULT_ERROR;
 
     if (balanceField[0] == '\0') return RESULT_ERROR;
 
@@ -104,6 +104,18 @@ static int calculateNextBalance(const char *balanceField, long delta, bool check
 
     if (currentBalance < 0) return RESULT_ERROR;
 
+    *balance = currentBalance;
+    return RESULT_OK;
+}
+
+static int calculateNextBalance(const char *balanceField, long delta, bool checkFunds, long *nextBalance)
+{
+    if (nextBalance == NULL) return RESULT_ERROR;
+
+    long currentBalance = 0;
+    int parseResult = parseBalanceField(balanceField, &currentBalance);
+    if (parseResult != RESULT_OK) return parseResult;
+
     if (delta > 0 && currentBalance > LONG_MAX - delta) return RESULT_ERROR;
 
     if (delta < 0 && currentBalance < LONG_MIN - delta) return RESULT_ERROR;
@@ -112,6 +124,46 @@ static int calculateNextBalance(const char *balanceField, long delta, bool check
     if (checkFunds && *nextBalance < 0) return RESULT_CONFLICT;
 
     return RESULT_OK;
+}
+
+int getUserBalance(const char *userId, long *balance)
+{
+    if (userId == NULL || balance == NULL) return RESULT_ERROR;
+
+    FILE *fptr = fopen("db.txt", "r");
+    if (fptr == NULL) return RESULT_ERROR;
+
+    char *line = NULL;
+    size_t len = 0;
+
+    while (getline(&line, &len, fptr) != -1)
+    {
+        char *copy = strdup(line);
+        if (copy == NULL)
+        {
+            free(line);
+            fclose(fptr);
+            return RESULT_ERROR;
+        }
+
+        char *fields[6] = {0};
+        int fieldCount = splitUserLine(copy, fields, 6);
+
+        if (fieldCount >= 6 && strcmp(fields[0], userId) == 0)
+        {
+            int parseResult = parseBalanceField(fields[5], balance);
+            free(copy);
+            free(line);
+            fclose(fptr);
+            return parseResult;
+        }
+
+        free(copy);
+    }
+
+    free(line);
+    fclose(fptr);
+    return RESULT_NOT_FOUND;
 }
 
 static void writeUserLineWithNewBalance(FILE *dst, char **fields, long nextBalance)

@@ -274,6 +274,25 @@ static void freeOperationParticipants(char *userId, char *secondUserId)
     free(userId);
 }
 
+static void printOperationFailure(operationType type, int result)
+{
+    if (result == RESULT_CONFLICT)
+    {
+        printf("Insufficient funds.\n");
+    }
+    else if (result == RESULT_NOT_FOUND)
+    {
+        if (type == TRANSFER)
+            printf("One of the account IDs was not found.\n");
+        else
+            printf("User ID not found in database.\n");
+    }
+    else
+    {
+        printf("Operation cannot be completed.\n");
+    }
+}
+
 static void processOperation(const OperationOption *opt)
 {
     char *userIdValidated = NULL;
@@ -288,15 +307,23 @@ static void processOperation(const OperationOption *opt)
     {
         printf("Line parsing went wrong, Try again\n");
     }
-    else if (readConfirmation("Do you want to proceed? (Y/n): ", 'n') == 'y')
+    else
     {
-        int res = makeOperation(opt->type, userIdValidated, secondUserIdValidated, amount);
-        if (res < RESULT_OK)
+        int checkResult = canMakeOperation(opt->type, userIdValidated, secondUserIdValidated, amount);
+        if (checkResult != RESULT_OK)
         {
-            printf("Operation failed\n");
-            freeOperationParticipants(userIdValidated, secondUserIdValidated);
-            waitForEnter();
-            return;
+            printOperationFailure(opt->type, checkResult);
+        }
+        else if (readConfirmation("Do you want to proceed? (Y/n): ", 'n') == 'y')
+        {
+            int res = makeOperation(opt->type, userIdValidated, secondUserIdValidated, amount);
+            if (res < RESULT_OK)
+            {
+                printOperationFailure(opt->type, res);
+                freeOperationParticipants(userIdValidated, secondUserIdValidated);
+                waitForEnter();
+                return;
+            }
         }
     }
 
